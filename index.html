@@ -1,0 +1,3402 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>ReusBus Live · Reus Transport (Octubre 2026)</title>
+
+  <!-- Leaflet 1.9.4 desde cdnjs con respaldo automático a unpkg -->
+  <link id="leaflet-css" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"
+        onerror="this.onerror=null;this.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"
+          onerror="var s=document.createElement('script');s.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';document.head.appendChild(s);"></script>
+
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --surface-soft: #f1f5f9;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --shadow-lg: 0 12px 32px -6px rgba(15, 23, 42, 0.22), 0 4px 12px -2px rgba(15, 23, 42, 0.12);
+      --shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.08);
+      --radius-lg: 20px;
+      --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: var(--font);
+      color: var(--text);
+      background: #e5e7eb;
+    }
+
+    /* Mapa pantalla completa */
+    #map {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+      background: #e5e7eb;
+    }
+
+    /* Ajustes controles Leaflet */
+    .leaflet-control-zoom {
+      border: none !important;
+      box-shadow: var(--shadow-lg) !important;
+      border-radius: 14px !important;
+      overflow: hidden;
+      margin-right: 12px !important;
+      margin-bottom: 16px !important;
+    }
+    .leaflet-control-zoom a {
+      width: 38px !important;
+      height: 38px !important;
+      line-height: 38px !important;
+      font-weight: 800 !important;
+      color: var(--text) !important;
+      background: rgba(255, 255, 255, 0.96) !important;
+      border-bottom: 1px solid var(--border) !important;
+    }
+    .leaflet-popup-content-wrapper {
+      border-radius: 16px !important;
+      box-shadow: var(--shadow-lg) !important;
+      padding: 0 !important;
+      overflow: hidden;
+    }
+    .leaflet-popup-content {
+      margin: 0 !important;
+      min-width: 245px;
+    }
+    .leaflet-popup-close-button {
+      top: 8px !important;
+      right: 8px !important;
+      color: #64748b !important;
+      font-size: 18px !important;
+    }
+
+    /* Utilidades */
+    .hidden { display: none !important; }
+    .scroll-x {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .scroll-x::-webkit-scrollbar { display: none; }
+    .scroll-y {
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .scroll-y::-webkit-scrollbar { width: 5px; }
+    .scroll-y::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+
+    /* Barra superior flotante */
+    .top-bar {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+    @media (min-width: 768px) {
+      .top-bar { left: 428px; right: 14px; }
+    }
+
+    .top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      pointer-events: auto;
+    }
+
+    .glass-bar {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(226, 232, 240, 0.95);
+      box-shadow: var(--shadow-lg);
+      border-radius: 16px;
+      padding: 6px 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      max-width: 100%;
+    }
+
+    .top-mini-logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11.5px;
+      font-weight: 900;
+      color: #0f172a;
+      padding: 4px 8px 4px 5px;
+      border-radius: 10px;
+      background: #fee2e2;
+      flex-shrink: 0;
+    }
+    .top-mini-logo span.t-mark {
+      width: 20px;
+      height: 20px;
+      border-radius: 6px;
+      background: #dc2626;
+      color: #ffffff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 900;
+    }
+    @media (min-width: 768px) { .top-mini-logo { display: none; } }
+
+    .clock-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 11px;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+      flex-shrink: 0;
+      background: #059669;
+      color: #ffffff;
+    }
+    .clock-pill.is-night {
+      background: #1e1b4b;
+      color: #fde68a;
+    }
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #ffffff;
+      animation: pulseAnim 1.4s infinite ease-in-out;
+    }
+    @keyframes pulseAnim {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.75); }
+    }
+
+    .day-pill {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 9px;
+      background: var(--surface-soft);
+      color: #334155;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .sim-btn {
+      border: none;
+      background: var(--surface-soft);
+      color: #334155;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 6px 9px;
+      border-radius: 9px;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: background 0.15s, color 0.15s;
+    }
+    .sim-btn:hover { background: #e2e8f0; }
+    .sim-btn.active { background: #0f172a; color: #ffffff; }
+
+    .festiu-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 9px;
+      border-radius: 9px;
+      background: #fef3c7;
+      color: #92400e;
+      border: 1px solid #fde68a;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      user-select: none;
+    }
+    .festiu-toggle input { margin: 0; accent-color: #d97706; cursor: pointer; }
+
+    .icon-action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(226, 232, 240, 0.95);
+      box-shadow: var(--shadow-lg);
+      color: var(--text);
+      border-radius: 14px;
+      padding: 9px 12px;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: transform 0.12s, background 0.15s;
+    }
+    .icon-action-btn:hover { background: #eff6ff; color: var(--primary-dark); }
+    .icon-action-btn:active { transform: scale(0.97); }
+    .btn-label-desktop { display: none; }
+    @media (min-width: 960px) { .btn-label-desktop { display: inline; } }
+
+    /* Chips de filtro rápido de líneas */
+    .chips-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      pointer-events: auto;
+      padding-bottom: 2px;
+    }
+    .line-chip {
+      border: 1px solid rgba(226, 232, 240, 0.95);
+      background: rgba(255, 255, 255, 0.95);
+      color: #475569;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 5px 10px;
+      border-radius: 11px;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      box-shadow: var(--shadow-sm);
+      transition: transform 0.12s, opacity 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .line-chip:hover { transform: translateY(-1px); }
+    .line-chip.is-on { color: #ffffff; border-color: transparent; }
+    .line-chip.is-dim { opacity: 0.56; }
+
+    /* Banner nocturno y píldora de progreso OSRM */
+    .map-night-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: rgba(15, 23, 42, 0.94);
+      color: #ffffff;
+      border: 1px solid rgba(99, 102, 241, 0.45);
+      border-radius: 14px;
+      padding: 8px 12px;
+      box-shadow: var(--shadow-lg);
+      pointer-events: auto;
+      max-width: 540px;
+      font-size: 11.5px;
+    }
+    .map-night-banner button {
+      border: none;
+      background: #fbbf24;
+      color: #0f172a;
+      font-weight: 800;
+      font-size: 11px;
+      padding: 6px 10px;
+      border-radius: 9px;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .map-night-banner button:hover { background: #fcd34d; }
+
+    .route-progress-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(15, 23, 42, 0.92);
+      color: #f8fafc;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      border-radius: 99px;
+      padding: 6px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      box-shadow: var(--shadow-sm);
+      pointer-events: auto;
+      align-self: flex-start;
+    }
+    .route-spinner {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.28);
+      border-top-color: #38bdf8;
+      animation: spinAnim 0.75s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spinAnim { to { transform: rotate(360deg); } }
+
+    /* Selector flotante de estilos MapTiler */
+    .style-switcher {
+      position: fixed;
+      right: 12px;
+      bottom: 126px;
+      z-index: 20;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(226, 232, 240, 0.95);
+      box-shadow: var(--shadow-lg);
+      border-radius: 14px;
+      padding: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    @media (min-width: 768px) {
+      .style-switcher {
+        flex-direction: row;
+        bottom: 18px;
+        right: 64px;
+      }
+    }
+    .style-pill {
+      border: none;
+      background: transparent;
+      color: #475569;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 6px 9px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    .style-pill:hover { background: var(--surface-soft); }
+    .style-pill.active { background: #0f172a; color: #ffffff; }
+
+    /* Panel lateral (Desktop) / Bottom-Sheet deslizable (Móvil) */
+    #drawer {
+      position: fixed;
+      z-index: 30;
+      background: var(--surface);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid rgba(226, 232, 240, 0.95);
+    }
+    @media (min-width: 768px) {
+      #drawer {
+        top: 12px;
+        left: 12px;
+        bottom: 12px;
+        width: 404px;
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-lg);
+        transform: none !important;
+      }
+    }
+    @media (max-width: 767px) {
+      #drawer {
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 82vh;
+        border-radius: 22px 22px 0 0;
+        box-shadow: 0 -10px 36px rgba(15, 23, 42, 0.24);
+        transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      #drawer.sheet-collapsed { transform: translateY(calc(100% - 134px)); }
+      #drawer.sheet-half { transform: translateY(44%); }
+      #drawer.sheet-expanded { transform: translateY(0%); }
+    }
+
+    .sheet-handle {
+      display: flex;
+      justify-content: center;
+      padding: 10px 0 4px;
+      cursor: grab;
+      touch-action: none;
+      flex-shrink: 0;
+    }
+    .sheet-handle-bar {
+      width: 42px;
+      height: 5px;
+      border-radius: 99px;
+      background: #cbd5e1;
+    }
+    @media (min-width: 768px) { .sheet-handle { display: none; } }
+
+    .drawer-header {
+      padding: 8px 14px 12px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+    @media (min-width: 768px) { .drawer-header { padding-top: 14px; } }
+
+    .brand-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .brand-left { display: flex; align-items: center; gap: 10px; }
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #dc2626, #991b1b);
+      color: #ffffff;
+      font-weight: 900;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 3px 10px rgba(220, 38, 38, 0.35);
+      flex-shrink: 0;
+    }
+    .brand-title {
+      font-size: 15px;
+      font-weight: 900;
+      margin: 0;
+      line-height: 1.1;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .brand-tag {
+      font-size: 9.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 6px;
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+    .brand-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    .mobile-sheet-btns { display: flex; gap: 4px; }
+    @media (min-width: 768px) { .mobile-sheet-btns { display: none; } }
+    .mini-icon-btn {
+      border: none;
+      background: var(--surface-soft);
+      color: #475569;
+      width: 30px;
+      height: 30px;
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .tabs-bar {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+      background: var(--surface-soft);
+      padding: 4px;
+      border-radius: 12px;
+    }
+    .tab-btn {
+      border: none;
+      background: transparent;
+      color: #475569;
+      font-size: 12px;
+      font-weight: 800;
+      padding: 8px 6px;
+      border-radius: 9px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+    }
+    .tab-btn.active {
+      background: #ffffff;
+      color: var(--text);
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+    }
+    .live-badge {
+      font-size: 10px;
+      font-weight: 900;
+      padding: 1px 6px;
+      border-radius: 99px;
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    #drawer-body {
+      flex: 1;
+      background: var(--bg);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* Tarjetas y elementos internos */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 12px;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    }
+    .card-click { cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+    .card-click:hover { border-color: #93c5fd; background: #f8fbff; }
+
+    .search-row { display: flex; gap: 6px; }
+    .search-wrap { position: relative; flex: 1; }
+    .search-wrap svg {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #94a3b8;
+      pointer-events: none;
+    }
+    .search-input {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 9px 30px 9px 34px;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text);
+      outline: none;
+    }
+    .search-input:focus { border-color: var(--primary); }
+    .search-clear {
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: none;
+      background: transparent;
+      color: #94a3b8;
+      cursor: pointer;
+      padding: 4px;
+    }
+
+    .btn-primary {
+      border: none;
+      background: var(--primary);
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 800;
+      padding: 8px 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      white-space: nowrap;
+    }
+    .btn-primary:hover { background: var(--primary-dark); }
+
+    .btn-soft {
+      border: 1px solid var(--border);
+      background: #ffffff;
+      color: #334155;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 6px 10px;
+      border-radius: 9px;
+      cursor: pointer;
+    }
+    .btn-soft.active { background: #0f172a; color: #ffffff; border-color: #0f172a; }
+
+    .pill-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+    .line-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      font-weight: 900;
+      border-radius: 8px;
+      padding: 2px 7px;
+      font-size: 10.5px;
+      line-height: 1.3;
+      flex-shrink: 0;
+    }
+    .line-badge-lg {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 900;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .sms-tag {
+      font-size: 10px;
+      font-weight: 800;
+      background: #f1f5f9;
+      color: #475569;
+      padding: 2px 6px;
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+    .demand-tag {
+      font-size: 9.5px;
+      font-weight: 800;
+      background: #fef3c7;
+      color: #92400e;
+      padding: 2px 6px;
+      border-radius: 6px;
+      border: 1px solid #fde68a;
+    }
+    .eta-pill {
+      font-size: 11.5px;
+      font-weight: 900;
+      padding: 4px 8px;
+      border-radius: 9px;
+      white-space: nowrap;
+    }
+    .eta-now { background: #059669; color: #ffffff; animation: pulseAnim 1.4s infinite; }
+    .eta-soon { background: #dcfce7; color: #166534; }
+    .eta-later { background: #f1f5f9; color: #0f172a; }
+    .eta-night { background: #eef2ff; color: #3730a3; font-size: 10.5px; }
+
+    .night-card {
+      background: linear-gradient(135deg, #0f172a, #1e1b4b);
+      color: #ffffff;
+      border-radius: 16px;
+      padding: 14px;
+      border: 1px solid rgba(99, 102, 241, 0.45);
+    }
+
+    /* Termómetro parada por parada */
+    .thermo-list { position: relative; padding-left: 24px; }
+    .thermo-item {
+      position: relative;
+      padding: 6px 8px;
+      margin: 0 -8px 4px;
+      border-radius: 11px;
+      cursor: pointer;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .thermo-item:hover { background: #f8fafc; }
+    .thermo-line {
+      position: absolute;
+      left: -16px;
+      top: 14px;
+      bottom: -14px;
+      width: 4px;
+      border-radius: 99px;
+    }
+    .thermo-dot {
+      position: absolute;
+      left: -21px;
+      top: 10px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 3.5px solid #0f172a;
+      z-index: 2;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 6px;
+      border-radius: 99px;
+      background: #e2e8f0;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    .progress-fill { height: 100%; border-radius: 99px; }
+
+    /* Marcadores de parada en mapa */
+    .stop-marker-wrap { display: flex; align-items: center; justify-content: center; }
+    .stop-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 2.5px solid #0f172a;
+      box-shadow: 0 2px 5px rgba(15, 23, 42, 0.35);
+      transition: transform 0.15s;
+    }
+    .stop-dot.is-hub { width: 12px; height: 12px; border-width: 3px; }
+    .stop-dot.is-demand { border-style: dashed; border-color: #d97706 !important; background: #fffbeb; }
+    .stop-dot.is-selected {
+      transform: scale(1.65);
+      border-color: #2563eb !important;
+      box-shadow: 0 0 0 5px rgba(37, 99, 235, 0.3);
+    }
+    #map.zoom-low .stop-dot { width: 6px; height: 6px; border-width: 1.8px; }
+    #map.zoom-low .stop-dot.is-hub { width: 9px; height: 9px; border-width: 2.2px; }
+    #map.zoom-high .stop-dot { width: 12px; height: 12px; border-width: 3px; }
+    #map.zoom-high .stop-dot.is-hub { width: 15px; height: 15px; border-width: 3.5px; }
+
+    /* Marcadores animados de buses en tiempo real */
+    .leaflet-marker-icon.bus-marker-smooth { transition: transform 0.85s linear; }
+    .bus-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 99px;
+      color: #ffffff;
+      font-weight: 900;
+      font-size: 11px;
+      border: 2.5px solid #ffffff;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.38);
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .bus-pill:hover { transform: scale(1.14); }
+    .bus-dir-arrow {
+      display: inline-block;
+      font-size: 10px;
+      line-height: 1;
+      transition: transform 0.35s linear;
+    }
+
+    /* Popup tarjeta del bus */
+    .bus-popup { padding: 12px 14px; font-family: var(--font); }
+    .bus-popup-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .bus-popup-title { font-size: 13px; font-weight: 800; color: #0f172a; line-height: 1.2; }
+    .bus-popup-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+    .bus-popup-btn {
+      margin-top: 10px;
+      width: 100%;
+      border: none;
+      background: #0f172a;
+      color: #ffffff;
+      font-size: 11.5px;
+      font-weight: 800;
+      padding: 8px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    /* Modal de Ajustes (API & Mapa) */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background: rgba(15, 23, 42, 0.58);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-box {
+      background: #ffffff;
+      border-radius: 22px;
+      width: 100%;
+      max-width: 460px;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 20px;
+      box-shadow: var(--shadow-lg);
+      border: 1px solid var(--border);
+    }
+    .field-group {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      margin-top: 12px;
+    }
+    .field-label {
+      display: block;
+      font-size: 11.5px;
+      font-weight: 800;
+      color: #334155;
+      margin-bottom: 6px;
+    }
+    .field-input, .field-select {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 9px 10px;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text);
+      background: #ffffff;
+      outline: none;
+    }
+    .field-input:focus, .field-select:focus { border-color: var(--primary); }
+
+    /* Toast */
+    #toast {
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 60;
+      background: rgba(15, 23, 42, 0.95);
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 10px 16px;
+      border-radius: 14px;
+      box-shadow: var(--shadow-lg);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      max-width: 90vw;
+      text-align: center;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #64748b;
+      padding: 0 2px;
+    }
+    .back-link {
+      border: none;
+      background: transparent;
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 0;
+    }
+    .star-btn {
+      border: none;
+      background: transparent;
+      font-size: 16px;
+      cursor: pointer;
+      padding: 0 2px;
+      line-height: 1;
+      color: #cbd5e1;
+    }
+    .star-btn.is-fav { color: #f59e0b; }
+  </style>
+</head>
+<body>
+
+  <!-- MAPA PANTALLA COMPLETA -->
+  <div id="map" class="zoom-mid"></div>
+
+  <!-- BARRA SUPERIOR FLOTANTE -->
+  <header class="top-bar">
+    <div class="top-row">
+      <div class="glass-bar scroll-x">
+        <div class="top-mini-logo">
+          <span class="t-mark">T</span>
+          <span>ReusBus</span>
+        </div>
+        <div id="clock-pill" class="clock-pill">
+          <span class="pulse-dot"></span>
+          <span id="clock-text">--:--:--</span>
+        </div>
+        <span id="day-pill" class="day-pill">Laborable</span>
+
+        <button class="sim-btn active" data-sim="realtime" onclick="window.__setSimMode('realtime')">Tiempo Real</button>
+        <button class="sim-btn" data-sim="punta" onclick="window.__setSimMode('punta')">08:30 Punta</button>
+        <button class="sim-btn" data-sim="dia" onclick="window.__setSimMode('dia')">14:15</button>
+        <button class="sim-btn" data-sim="sab" onclick="window.__setSimMode('sab')">Sáb 11:00</button>
+        <button class="sim-btn" data-sim="dom" onclick="window.__setSimMode('dom')">Dom 12:00</button>
+        <button class="sim-btn" data-sim="noche" onclick="window.__setSimMode('noche')">01:30 Noche</button>
+
+        <label class="festiu-toggle" title="Activar horario de Diumenge / Festiu">
+          <input type="checkbox" id="festiu-check" onchange="window.__toggleFestiu(this.checked)" />
+          <span>Festiu</span>
+        </label>
+      </div>
+
+      <div style="display:flex; gap:6px; flex-shrink:0;">
+        <button class="icon-action-btn" onclick="window.__openSettings()" title="Configurar API Key, proveedor y trazado">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span class="btn-label-desktop">⚙️ API &amp; Mapa</span>
+        </button>
+        <button class="icon-action-btn" onclick="window.__recenterReus()" title="Centrar en Reus">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Chips rápidos de filtro de líneas -->
+    <div id="line-chips" class="chips-row scroll-x"></div>
+
+    <!-- Aviso rápido nocturno cuando no circulan buses -->
+    <div id="top-night-banner" class="map-night-banner hidden">
+      <span>🌙 <strong>Servicio nocturno sin buses activos.</strong> Consultando primeros buses de mañana.</span>
+      <button onclick="window.__setSimMode('punta')">Simular 08:30 Punta</button>
+    </div>
+
+    <!-- Píldora discreta de descarga de trazados reales OSRM -->
+    <div id="route-progress-pill" class="route-progress-pill hidden">
+      <span class="route-spinner"></span>
+      <span id="route-progress-text">Trazando carreteras reales...</span>
+    </div>
+  </header>
+
+  <!-- SELECTOR FLOTANTE DE ESTILOS MAPTILER -->
+  <div id="style-switcher" class="style-switcher" aria-label="Estilo de mapa MapTiler">
+    <button class="style-pill active" data-style="streets-v2" onclick="window.__switchMapStyle('streets-v2')">Streets</button>
+    <button class="style-pill" data-style="bright-v2" onclick="window.__switchMapStyle('bright-v2')">Claro</button>
+    <button class="style-pill" data-style="streets-v2-dark" onclick="window.__switchMapStyle('streets-v2-dark')">Noche</button>
+    <button class="style-pill" data-style="hybrid" onclick="window.__switchMapStyle('hybrid')">Híbrido</button>
+  </div>
+
+  <!-- PANEL LATERAL (DESKTOP) / BOTTOM-SHEET (MÓVIL) -->
+  <aside id="drawer" class="sheet-half">
+    <div id="sheet-handle" class="sheet-handle">
+      <div class="sheet-handle-bar"></div>
+    </div>
+
+    <div class="drawer-header">
+      <div class="brand-row">
+        <div class="brand-left">
+          <div class="brand-logo">T</div>
+          <div>
+            <h1 class="brand-title">
+              ReusBus Live
+              <span class="brand-tag">Oct 2026</span>
+            </h1>
+            <div id="brand-subtitle" class="brand-sub">Reus Transport · MapTiler HD</div>
+          </div>
+        </div>
+        <div class="mobile-sheet-btns">
+          <button class="mini-icon-btn" onclick="window.__setSheet('collapsed')" title="Minimizar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <button class="mini-icon-btn" onclick="window.__setSheet('expanded')" title="Expandir">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 15l-6-6-6 6"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="tabs-bar">
+        <button id="tab-paradas" class="tab-btn active" onclick="window.__switchTab('paradas')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span>Paradas</span>
+        </button>
+        <button id="tab-lineas" class="tab-btn" onclick="window.__switchTab('lineas')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></svg>
+          <span>Líneas</span>
+        </button>
+        <button id="tab-envivo" class="tab-btn" onclick="window.__switchTab('envivo')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>
+          <span>En Vivo</span>
+          <span id="live-count" class="live-badge">0</span>
+        </button>
+      </div>
+    </div>
+
+    <div id="drawer-body" class="scroll-y"></div>
+  </aside>
+
+  <!-- MODAL DE CONFIGURACIÓN: API & MAPA -->
+  <div id="settings-modal" class="modal-backdrop hidden">
+    <div class="modal-box">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding-bottom:12px; border-bottom:1px solid var(--border);">
+        <div>
+          <h2 style="margin:0; font-size:16px; font-weight:900;">⚙️ API &amp; Mapa</h2>
+          <div style="font-size:11.5px; color:var(--text-muted); margin-top:2px;">MapTiler HD, respaldo OpenStreetMap y trazado real por carreteras</div>
+        </div>
+        <button class="mini-icon-btn" onclick="window.__closeSettings()" aria-label="Cerrar">✕</button>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="cfg-provider">Proveedor de mapa base</label>
+        <select id="cfg-provider" class="field-select" onchange="window.__onProviderChange()">
+          <option value="maptiler">MapTiler HD @2x (Recomendado)</option>
+          <option value="osm">OpenStreetMap Estándar (Gratis · Sin API Key)</option>
+        </select>
+
+        <div id="cfg-key-box" style="margin-top:10px;">
+          <label class="field-label" for="cfg-maptiler-key">MapTiler API Key</label>
+          <input id="cfg-maptiler-key" class="field-input" type="text" autocomplete="off" placeholder="Tu API Key de MapTiler..." />
+          <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">
+            Respaldo automático a OpenStreetMap si fallan 3 o más teselas de MapTiler.
+          </div>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label style="display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
+          <span style="font-size:12px; font-weight:800; color:#0f172a;">Trazado por carreteras reales (vs. esquemático)</span>
+          <input id="cfg-snapping" type="checkbox" onchange="window.__onRoutingChange()" style="width:18px; height:18px; accent-color:#2563eb; cursor:pointer;" />
+        </label>
+        <div style="font-size:11px; color:var(--text-muted); margin-top:5px; line-height:1.4;">
+          Calcula la geometría real tramo a tramo entre paradas para que líneas y autobuses sigan calles y rotondas.
+        </div>
+
+        <div id="cfg-routing-box" style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">
+          <label class="field-label" for="cfg-routing-provider">Motor de enrutado por carretera</label>
+          <select id="cfg-routing-provider" class="field-select" onchange="window.__onRoutingChange()">
+            <option value="osrm">OSRM Público (Gratis · Sin API Key · Recomendado)</option>
+            <option value="ors">OpenRouteService (API Key opcional)</option>
+            <option value="mapbox">Mapbox Directions (API Key opcional)</option>
+          </select>
+
+          <div id="cfg-routing-key-box" class="hidden" style="margin-top:8px;">
+            <label class="field-label" for="cfg-routing-key">API Key del motor de enrutado</label>
+            <input id="cfg-routing-key" class="field-input" type="text" autocomplete="off" placeholder="Pega tu API Key de ORS o Mapbox..." />
+          </div>
+
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:10px; background:#ffffff; border:1px solid var(--border); border-radius:10px; padding:8px 10px;">
+            <span id="cfg-cache-count" style="font-size:11px; font-weight:700; color:#334155;">0 rutas cacheadas</span>
+            <button type="button" class="btn-soft" onclick="window.__clearRoutesCache()" style="color:#b91c1c; border-color:#fecaca; background:#fef2f2;">Limpiar caché</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:16px; padding-top:12px; border-top:1px solid var(--border);">
+        <button class="btn-soft" onclick="window.__resetSettings()">Restablecer</button>
+        <div style="display:flex; gap:8px;">
+          <button class="btn-soft" onclick="window.__closeSettings()">Cancelar</button>
+          <button class="btn-primary" onclick="window.__saveSettings()">Guardar y aplicar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NO BLOQUEANTE -->
+  <div id="toast" class="hidden"></div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      // =========================================================================
+      // 1. ALMACENAMIENTO SEGURO (safeStorage con respaldo en memoria)
+      // =========================================================================
+      const memoryStore = {};
+      const safeStorage = {
+        get(key, fallback) {
+          try {
+            const raw = window.localStorage.getItem(key);
+            if (raw !== null) return JSON.parse(raw);
+          } catch (e) {
+            if (Object.prototype.hasOwnProperty.call(memoryStore, key)) {
+              return memoryStore[key];
+            }
+          }
+          return fallback;
+        },
+        set(key, value) {
+          memoryStore[key] = value;
+          try {
+            window.localStorage.setItem(key, JSON.stringify(value));
+          } catch (e) {
+            // Silencioso en iframes sandbox o cuota llena
+          }
+        },
+        remove(key) {
+          delete memoryStore[key];
+          try {
+            window.localStorage.removeItem(key);
+          } catch (e) {}
+        }
+      };
+
+      // =========================================================================
+      // 2. CONSTANTES DE CONFIGURACIÓN
+      // =========================================================================
+      const DEFAULT_MAPTILER_KEY = "7lnEXkY7lCsqKCFV34j8";
+      const REUS_CENTER = [41.1550, 1.1060];
+      const DEFAULT_ZOOM = 14;
+      const STORAGE_SETTINGS = "reusbus_cfg_v5";
+      const STORAGE_FAVS = "reusbus_favs_v5";
+      const STORAGE_ROUTES = "reusbus_routes_v5";
+
+      const HUB_CODES = new Set([91, 92, 93, 129, 130, 198, 199, 46, 47, 13, 195, 62, 1, 150, 151, 118, 72]);
+      const ON_DEMAND_CODES = new Set([211, 210, 209, 63, 183, 227, 165, 177, 214, 225]);
+      const DAY_NAMES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+
+      // =========================================================================
+      // 3. CATÁLOGO OFICIAL DE PARADAS GTFS (stops_REU_2.txt + Av. Salou/Fortuny)
+      //    Todas las cadenas usan comillas dobles para evitar errores por apóstrofos
+      // =========================================================================
+      const RAW_STOPS = [
+        [1, "Aeroport", 41.1473618, 1.1519616, false],
+        [2, "Adrià Gual 2", 41.1573639, 1.0752448, false],
+        [3, "Adrià Gual 1", 41.1572418, 1.0751182, false],
+        [4, "Agro Reus 2", 41.1574097, 1.0784767, false],
+        [5, "Agro Reus 1", 41.1572762, 1.0783850, false],
+        [6, "Alcolea", 41.1597290, 1.0927399, false],
+        [7, "Antoni Rubió i Lluch 2", 41.1567001, 1.0799457, false],
+        [8, "Antoni Rubió i Lluch 1", 41.1565742, 1.0799260, false],
+        [9, "Av. de Marià Fortuny 2", 41.1555481, 1.1173323, false],
+        [10, "Av. de Marià Fortuny 1", 41.1556206, 1.1177897, false],
+        [11, "Av. de Sant Jordi 2", 41.1594467, 1.1075206, false],
+        [12, "Av. de Sant Jordi 1", 41.1596947, 1.1073812, false],
+        [13, "Barri Montserrat", 41.1334686, 1.1193317, false],
+        [14, "Barri Fortuny 1", 41.1438, 1.1128, true],
+        [15, "Barri Fortuny 2", 41.1437, 1.1125, true],
+        [16, "Escola M. Fortuny 2", 41.1419, 1.1136, true],
+        [18, "Bellissens 1", 41.1469078, 1.1201861, false],
+        [19, "Bellissens 2", 41.1466331, 1.1200973, false],
+        [20, "Boca de la Mina", 41.1638832, 1.0932370, false],
+        [23, "Camí de Tarragona 2", 41.1530724, 1.1120067, false],
+        [24, "Camí de Tarragona 1", 41.1531105, 1.1122591, false],
+        [25, "Camí de Valls 2", 41.1571007, 1.1122111, false],
+        [26, "Camí de Valls 1", 41.1570015, 1.1124671, false],
+        [27, "CAP Marià Fortuny 1", 41.1456, 1.1117, true],
+        [28, "CAP Marià Fortuny 2", 41.1455, 1.1114, true],
+        [29, "CAP Sant Pere", 41.1533241, 1.0983812, false],
+        [30, "Carrilet 2", 41.1507034, 1.1110601, false],
+        [31, "Cementiri", 41.1669159, 1.1232764, false],
+        [33, "Escola M. Fortuny 1", 41.1420, 1.1139, true],
+        [34, "Urb. Pàmies 1", 41.1458, 1.1128, true],
+        [36, "Av. de Castellvell 1", 41.1663094, 1.1017058, false],
+        [37, "Av. de Castellvell 2", 41.1663818, 1.1019486, false],
+        [38, "Dipòsit de vehicles 2", 41.1557159, 1.0820292, false],
+        [39, "Dipòsit de vehicles 1", 41.1555290, 1.0819699, false],
+        [40, "Dom Bosco 2", 41.1596718, 1.1110972, false],
+        [41, "Dom Bosco 1", 41.1598701, 1.1112409, false],
+        [43, "Doctor Vilaseca", 41.1565094, 1.0977696, false],
+        [45, "El Pinar", 41.1741676, 1.1045684, false],
+        [46, "Estació d'autobusos 1", 41.1478157, 1.1112607, false],
+        [47, "Estació d'autobusos 2", 41.1478271, 1.1108922, false],
+        [49, "Estadi Municipal 1", 41.1569901, 1.0862902, false],
+        [50, "Pompeu Fabra 2", 41.1615486, 1.1107024, false],
+        [51, "Pompeu Fabra 1", 41.1618156, 1.1105047, false],
+        [52, "Flix 1", 41.1344795, 1.1182160, false],
+        [53, "Flix 2", 41.1344147, 1.1180807, false],
+        [54, "Folch i Torres", 41.1609993, 1.1026728, false],
+        [55, "Font de Rubinat 1", 41.1528282, 1.1026869, false],
+        [56, "Font de Rubinat 2", 41.1526260, 1.1023049, false],
+        [57, "Gironès", 41.1736221, 1.1014000, false],
+        [58, "Greco 1", 41.1483040, 1.1078485, false],
+        [59, "Greco 2", 41.1481438, 1.1076120, false],
+        [60, "Horticultura 1", 41.1398010, 1.1310205, false],
+        [61, "IES Domènech i Montaner", 41.1675529, 1.1011876, false],
+        [62, "Immaculada", 41.1474915, 1.0935619, false],
+        [63, "IPM 1", 41.1660919, 1.0865350, false],
+        [64, "Jardins de Reus 2", 41.1570206, 1.1174842, false],
+        [65, "Jaume I 1", 41.1500587, 1.1091496, false],
+        [66, "Joan Rebull 2", 41.1585808, 1.1009492, false],
+        [67, "Joan Rebull 1", 41.1584625, 1.1005366, false],
+        [68, "Jutjats 2", 41.1604462, 1.1151253, false],
+        [69, "Jutjats 1", 41.1607208, 1.1154881, false],
+        [70, "La Salle 1", 41.1496887, 1.1059217, false],
+        [71, "La Salle 2", 41.1494598, 1.1057645, false],
+        [72, "Llibertat", 41.1579094, 1.1051370, false],
+        [74, "Mare Molas", 41.1506882, 1.0980856, false],
+        [75, "Mas Abelló 2", 41.1488914, 1.1189284, false],
+        [76, "Mas Batlle 2", 41.1585617, 1.0733891, false],
+        [77, "Mas Batlle 1", 41.1583748, 1.0733536, false],
+        [78, "Mas de les Ànimes 2", 41.1595650, 1.0718069, false],
+        [79, "Mas de les Ànimes 1", 41.1603279, 1.0718781, false],
+        [83, "Miami 1", 41.1455231, 1.1051015, false],
+        [84, "Miami 2", 41.1455727, 1.1049497, false],
+        [86, "Misericòrdia", 41.1449928, 1.0994816, false],
+        [87, "Niloga 2", 41.1599541, 1.1043712, false],
+        [88, "Niloga 1", 41.1614876, 1.1045623, false],
+        [91, "Oques 1", 41.1561928, 1.1020273, false],
+        [92, "Oques 2", 41.1561165, 1.1014624, false],
+        [93, "Oques 3", 41.1563606, 1.1019185, false],
+        [94, "Pablo Picasso 2", 41.1517525, 1.1139612, false],
+        [95, "Pablo Picasso 1", 41.1514626, 1.1141933, false],
+        [96, "Països Catalans", 41.1554642, 1.0970016, false],
+        [97, "Parcel·les Cases 1", 41.1369514, 1.1168938, false],
+        [98, "Parcel·les Cases 2", 41.1369324, 1.1167020, false],
+        [100, "Pare Manyanet", 41.1463852, 1.0991156, false],
+        [101, "Pastoreta 1", 41.1502609, 1.1048137, false],
+        [102, "Pastoreta 2", 41.1498833, 1.1047901, false],
+        [103, "Peixateries Velles", 41.1544495, 1.1109968, false],
+        [104, "Pelai 2", 41.1598892, 1.0855055, false],
+        [105, "Pelai 1", 41.1595306, 1.0852330, false],
+        [106, "Pere el Ceremoniós 1", 41.1469002, 1.1068077, false],
+        [107, "Pere el Ceremoniós 2", 41.1469841, 1.1065270, false],
+        [108, "Passeig dels Plàtans", 41.1485634, 1.0923182, false],
+        [109, "Passeig de Prim 1", 41.1510086, 1.1037763, false],
+        [110, "Passeig de Prim 2", 41.1509514, 1.1032964, false],
+        [112, "Passeig de Sunyer 2", 41.1535187, 1.1017888, false],
+        [114, "Piscines Municipals", 41.1524315, 1.0943820, false],
+        [115, "Plaça Almoster 1", 41.1634026, 1.1021914, false],
+        [116, "Plaça Almoster 2", 41.1634941, 1.1023997, false],
+        [117, "Sant Josep 2", 41.1476974, 1.1208431, false],
+        [118, "Plaça de Prim", 41.1557465, 1.1065029, false],
+        [119, "Plaça Hèrcules 1", 41.1512718, 1.1077362, false],
+        [120, "Plaça Hèrcules 2", 41.1513824, 1.1073620, false],
+        [121, "Ploms 2", 41.1536827, 1.1160837, false],
+        [122, "Ploms 1", 41.1543121, 1.1170882, false],
+        [123, "Raval de Martí Folguera", 41.1537704, 1.1073087, false],
+        [124, "Raval de Robuster 1", 41.1528549, 1.1092411, false],
+        [125, "Recasens i Mercadé 2", 41.1558304, 1.0851697, false],
+        [126, "Recasens i Mercadé 1", 41.1558456, 1.0854805, false],
+        [127, "Constantí 2", 41.1585159, 1.1169227, false],
+        [128, "Constantí 1", 41.1586342, 1.1174067, false],
+        [129, "RENFE 2", 41.1594086, 1.1010603, false],
+        [130, "RENFE 1", 41.1600342, 1.1008968, false],
+        [132, "Reus Transport", 41.1619186, 1.0732160, false],
+        [134, "Riera d'Aragó 2", 41.1550674, 1.1124055, false],
+        [135, "Riera d'Aragó 1", 41.1549797, 1.1126145, false],
+        [136, "Ripollès", 41.1742744, 1.1030140, false],
+        [138, "Riudoms", 41.1524315, 1.0976584, false],
+        [139, "Rovira i Virgili 2", 41.1565819, 1.0769240, false],
+        [140, "Rovira i Virgili 1", 41.1565895, 1.0772104, false],
+        [142, "Saragossa", 41.1623726, 1.0919275, false],
+        [143, "Sol i Vista 2", 41.1577263, 1.0850731, false],
+        [144, "Sol i Vista 1", 41.1569023, 1.0879172, false],
+        [145, "Sant Bernat Calbó 1", 41.1440277, 1.1028401, false],
+        [146, "Sant Bernat Calbó 2", 41.1443100, 1.1024528, false],
+        [147, "Tanatori 2", 41.1505737, 1.1138637, false],
+        [148, "Tanatori 1", 41.1507607, 1.1141733, false],
+        [149, "Tirant Lo Blanc", 41.1580048, 1.0863177, false],
+        [150, "Universitat 1", 41.1457405, 1.1211016, false],
+        [151, "Universitat 2", 41.1453209, 1.1207536, false],
+        [152, "Urb. Juncosa 1", 41.1398544, 1.1147411, false],
+        [153, "Urb. Juncosa 2", 41.1397781, 1.1145934, false],
+        [154, "Vall d'Aran", 41.1728821, 1.1029626, false],
+        [155, "Ventura Gassol 2", 41.1612206, 1.1138155, false],
+        [156, "Ventura Gassol 1", 41.1613121, 1.1145005, false],
+        [157, "Victor Català 2", 41.1549339, 1.0843394, false],
+        [158, "Victor Català 1", 41.1547356, 1.0843153, false],
+        [159, "Vidal i Barraquer 2", 41.1475334, 1.1085150, false],
+        [161, "Vilafortuny", 41.1480751, 1.0986731, false],
+        [165, "CESDA 1", 41.1460075, 1.1402854, false],
+        [166, "IES Gaudí - Mas Carandell", 41.1624146, 1.0942180, false],
+        [168, "Jardins de Reus 1", 41.1570015, 1.1179597, false],
+        [170, "Carles Riba 2", 41.1495438, 1.1150024, false],
+        [171, "Carles Riba 1", 41.1494637, 1.1147709, false],
+        [172, "Mas Abelló 1", 41.1491318, 1.1189793, false],
+        [177, "CESDA 2", 41.1452026, 1.1403657, false],
+        [179, "Sant Josep 1", 41.1475601, 1.1213586, false],
+        [183, "Mas Carpa 1", 41.1491737, 1.1281310, false],
+        [186, "Av. del Comerç", 41.1590881, 1.0945587, false],
+        [187, "Av. Barcelona", 41.1602669, 1.0961810, false],
+        [194, "Jaume I 2", 41.1499748, 1.1090369, false],
+        [195, "Barri Gaudí", 41.1613846, 1.0958339, false],
+        [198, "Hospital 1", 41.1442032, 1.1231016, false],
+        [199, "Hospital 2", 41.1441040, 1.1225951, false],
+        [203, "Fira de Reus 1", 41.1436424, 1.1281767, false],
+        [204, "Fira de Reus 2", 41.1433983, 1.1284117, false],
+        [205, "Tecnoparc 1", 41.1455269, 1.1308919, false],
+        [206, "Tecnoparc 2", 41.1453056, 1.1312474, false],
+        [207, "Av. de Tarragona 1", 41.1466484, 1.1327256, false],
+        [208, "Av. de Tarragona 2", 41.1465073, 1.1328478, false],
+        [209, "Escola Alba", 41.1700516, 1.0865670, false],
+        [210, "Escola d'Idiomes i Art", 41.1681824, 1.0859977, false],
+        [211, "IPM 2", 41.1664276, 1.0864843, false],
+        [214, "Aeroclub de Reus 1", 41.1455956, 1.1474187, false],
+        [216, "Rosaleda", 41.1499062, 1.0920206, false],
+        [219, "Raval de Robuster 2", 41.1526985, 1.1083734, false],
+        [220, "Urb. Pàmies 2", 41.1456528, 1.1125667, false],
+        [221, "Escola Eduard Toda 1", 41.1463737, 1.1160427, false],
+        [222, "Escola Eduard Toda 2", 41.1463623, 1.1153748, false],
+        [223, "Maria Aurèlia Capmany", 41.1450577, 1.1134945, false],
+        [224, "Jaume Vidal Alcover", 41.1484489, 1.1131111, false],
+        [225, "Aeroclub de Reus 2", 41.1451836, 1.1480956, false],
+        [227, "Mas Carpa 2", 41.1490746, 1.1278985, false],
+        [228, "Horticultura 2", 41.1391335, 1.1318480, false],
+        [229, "Sant Joan 1", 41.1680679, 1.1149240, false],
+        [233, "Biblioteca Pere Anguera 1", 41.1441269, 1.1174505, false],
+        [235, "Urbanització Mercader", 41.1430969, 1.1152300, false],
+        [236, "Vidal i Barraquer 1", 41.1473389, 1.1091582, false],
+        [237, "Fundació Rosa Maria Vivar 1", 41.1436043, 1.1007649, false],
+        [238, "Fundació Rosa Maria Vivar 2", 41.1439285, 1.1008089, false],
+        [242, "Mercè Rodoreda", 41.1441956, 1.1142030, false],
+        [247, "Apel·les Mestres", 41.1608, 1.0725, true],
+        [248, "Cèlia Artiga i Esplugues", 41.1461143, 1.0958228, false],
+        [249, "Llorenç Milans del Bosch", 41.1446419, 1.0976610, false],
+        [253, "Carrilet 1", 41.1506653, 1.1113913, false]
+      ];
+
+      const STOPS = {};
+      RAW_STOPS.forEach(function (row) {
+        STOPS[row[0]] = {
+          code: row[0],
+          name: row[1],
+          lat: row[2],
+          lon: row[3],
+          approx: !!row[4],
+          hub: HUB_CODES.has(row[0]),
+          onDemand: ON_DEMAND_CODES.has(row[0])
+        };
+      });
+
+      // =========================================================================
+      // 4. UTILIDADES DE DISTANCIA, RUMBO Y HORARIOS
+      // =========================================================================
+      function haversineMeters(lat1, lon1, lat2, lon2) {
+        const R = 6371000;
+        const toRad = function (d) { return (d * Math.PI) / 180; };
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                  Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      }
+
+      function computeBearing(lat1, lon1, lat2, lon2) {
+        const toRad = function (d) { return (d * Math.PI) / 180; };
+        const y = Math.sin(toRad(lon2 - lon1)) * Math.cos(toRad(lat2));
+        const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+                  Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(toRad(lon2 - lon1));
+        return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+      }
+
+      function timeToMins(str) {
+        const parts = str.split(":");
+        return Number(parts[0]) * 60 + Number(parts[1]);
+      }
+
+      function minsToHHMM(mins) {
+        const total = ((Math.floor(mins) % 1440) + 1440) % 1440;
+        const h = Math.floor(total / 60);
+        const m = total % 60;
+        return String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0");
+      }
+
+      function minsToHHMMSS(minsFloat) {
+        const totalSec = ((Math.floor(minsFloat * 60) % 86400) + 86400) % 86400;
+        const h = Math.floor(totalSec / 3600);
+        const m = Math.floor((totalSec % 3600) / 60);
+        const s = totalSec % 60;
+        return String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+      }
+
+      function formatWait(mins) {
+        const r = Math.round(mins);
+        if (r <= 1) return "Llegando";
+        if (r < 60) return "En " + r + " min";
+        const h = Math.floor(r / 60);
+        const m = r % 60;
+        return m === 0 ? "en " + h + "h" : "en " + h + "h " + m + "m";
+      }
+
+      function genRange(start, end, step) {
+        const s = timeToMins(start);
+        const e = timeToMins(end);
+        const arr = [];
+        for (let t = s; t <= e; t += step) arr.push(minsToHHMM(t));
+        return arr;
+      }
+
+      function buildStops(codes, totalMins) {
+        const valid = codes.filter(function (c) { return !!STOPS[c]; });
+        if (valid.length === 0) return [];
+        if (valid.length === 1) return [{ code: valid[0], offset: 0 }];
+
+        const cumDist = [0];
+        for (let i = 1; i < valid.length; i++) {
+          const a = STOPS[valid[i - 1]];
+          const b = STOPS[valid[i]];
+          const d = Math.max(80, haversineMeters(a.lat, a.lon, b.lat, b.lon));
+          cumDist.push(cumDist[i - 1] + d);
+        }
+        const totalDist = cumDist[cumDist.length - 1] || 1;
+        return valid.map(function (code, idx) {
+          return {
+            code: code,
+            offset: Math.round((cumDist[idx] / totalDist) * totalMins * 10) / 10
+          };
+        });
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      // =========================================================================
+      // 5. RED OFICIAL DE LÍNEAS (OCTUBRE 2026) CON PALETA EXACTA
+      // =========================================================================
+      const L10_LS = ["05:30", "06:10"].concat(genRange("06:50", "21:30", 20), ["22:10"]);
+      const L10_DF = ["06:00", "07:00", "08:00", "09:00", "10:30", "11:30", "12:30", "13:30", "14:30", "15:30", "16:30", "18:00", "19:00", "20:00", "21:00"];
+      const L11_LV = genRange("07:20", "22:40", 20);
+      const L20_LS = genRange("06:05", "21:45", 20);
+      const L21_DF = genRange("06:05", "21:35", 30);
+      const L30_LV = ["05:40", "06:15", "06:40", "07:15", "07:40", "08:15", "08:45", "09:15", "09:45", "10:15", "10:45", "11:15", "11:45", "12:15", "12:45", "13:15", "13:45", "14:15", "14:45", "15:15", "15:45", "16:15", "16:45", "17:15", "17:45", "18:15", "18:45", "19:15", "19:45", "20:15", "20:45", "21:15"];
+      const L30_SDF = ["09:02", "09:55", "11:10", "11:35", "12:00", "12:25", "13:05", "13:30", "13:55", "16:30", "17:15", "17:40", "18:05"];
+      const L31_LV = genRange("06:15", "21:15", 60);
+      const L50_ALL = genRange("07:25", "21:25", 60);
+      const L60_LV = ["06:28"].concat(genRange("06:50", "21:30", 20));
+
+      const BUS_LINES = [
+        {
+          id: "10", code: "L10", color: "#DC2626", category: "regular",
+          name: "Barri Montserrat ↔ Barri Gaudí",
+          subtitle: "L–S cada 20' (05:30–22:10) · D/F cada 60' · Raval · RENFE · Oques",
+          directions: [
+            {
+              key: "loop", label: "Circular · Montserrat → Gaudí → Montserrat", dest: "Barri Gaudí / Montserrat",
+              stops: buildStops([13,52,97,152,33,14,27,46,65,119,124,103,26,41,51,12,88,130,67,92,29,96,187,195,166,20,142,6,186,43,91,118,123,219,120,194,47,220,16,34,153,98,53,13], 50),
+              departures: { weekday: L10_LS, saturday: L10_LS, sunday: L10_DF }
+            }
+          ]
+        },
+        {
+          id: "11", code: "L11", color: "#7C3AED", category: "regular",
+          name: "Barri Montserrat ↔ Oques - Llibertat",
+          subtitle: "Solo L–V cada 20' (07:20–22:40) · Passejos · RENFE",
+          directions: [
+            {
+              key: "loop", label: "Circular · Montserrat → Oques → Llibertat → Montserrat", dest: "Oques - Llibertat",
+              stops: buildStops([13,52,97,152,33,14,27,236,58,70,101,109,55,91,66,129,54,87,72,11,50,40,25,134,23,30,159,28,15,34,153,98,53,13], 31),
+              departures: { weekday: L11_LV, saturday: [], sunday: [] }
+            }
+          ]
+        },
+        {
+          id: "20", code: "L20", color: "#1D4ED8", category: "regular",
+          name: "Hospital ↔ Barri Immaculada",
+          subtitle: "L–S cada 20' (06:05–21:45) · URV · RENFE · Oques · Misericòrdia",
+          directions: [
+            {
+              key: "anada", label: "Anada · Hospital → Immaculada", dest: "Immaculada",
+              stops: buildStops([198,150,179,172,148,24,135,26,41,51,12,88,130,67,92,112,56,110,102,71,59,107,84,146,238,86,100,161,74,138,114,216,108,62], 32),
+              departures: { weekday: L20_LS, saturday: L20_LS, sunday: [] }
+            },
+            {
+              key: "tornada", label: "Tornada · Immaculada → Hospital", dest: "Hospital",
+              stops: buildStops([62,248,249,237,145,83,106,58,70,101,109,55,93,66,129,54,87,72,11,50,40,25,134,23,147,75,117,151,199], 30),
+              departures: { weekday: L20_LS, saturday: L20_LS, sunday: [] }
+            }
+          ]
+        },
+        {
+          id: "21", code: "L21", color: "#22B8CF", category: "weekend",
+          name: "Hospital ↔ Sant Bernat Calbó - Immaculada",
+          subtitle: "Solo Diumenges i Festius cada 30' (06:05–21:35)",
+          directions: [
+            {
+              key: "anada", label: "Anada · Hospital → Sant Bernat Calbó / Immaculada", dest: "Sant Bernat Calbó",
+              stops: buildStops([198,150,179,172,148,24,135,26,41,51,12,88,130,67,92,112,56,110,102,71,59,107,84,146,238,86,100,161,74,138,114,216,108,62], 32),
+              departures: { weekday: [], saturday: [], sunday: L21_DF }
+            },
+            {
+              key: "tornada", label: "Tornada · Immaculada / St. Bernat → Hospital", dest: "Hospital",
+              stops: buildStops([62,248,249,237,145,83,106,58,70,101,109,55,93,66,129,54,87,72,11,50,40,25,134,23,147,75,117,151,199], 30),
+              departures: { weekday: [], saturday: [], sunday: L21_DF }
+            }
+          ]
+        },
+        {
+          id: "30", code: "L30", color: "#16A34A", category: "regular",
+          name: "Oques ↔ Pelai - Sol i Vista - Agro Reus",
+          subtitle: "Diaria · IPM / EOI / Escola Alba a demanda (BusXtu)",
+          directions: [
+            {
+              key: "anada", label: "Anada · Oques 3 → Pelai → Agro Reus", dest: "Agro Reus / Pelai",
+              stops: buildStops([93,29,96,104,211,210,209,63,143,125,157,38,7,4,139,2,76,78,247,132], 18),
+              departures: { weekday: L30_LV, saturday: L30_SDF, sunday: L30_SDF }
+            },
+            {
+              key: "tornada", label: "Tornada · Agro Reus → Sol i Vista → Oques 3", dest: "Oques 3",
+              stops: buildStops([132,79,77,3,140,5,8,39,158,126,49,144,149,105,43,93], 15),
+              departures: {
+                weekday: L30_LV.map(function (t) { return minsToHHMM(timeToMins(t) + 20); }),
+                saturday: L30_SDF.map(function (t) { return minsToHHMM(timeToMins(t) + 20); }),
+                sunday: L30_SDF.map(function (t) { return minsToHHMM(timeToMins(t) + 20); })
+              }
+            }
+          ]
+        },
+        {
+          id: "31", code: "L31", color: "#65B741", category: "regular",
+          name: "Oques ↔ Agro Reus Directo",
+          subtitle: "Solo L–V cada 60' a :15 (06:15–21:15)",
+          directions: [
+            {
+              key: "anada", label: "Anada · Oques 3 → Agro Reus Directo", dest: "Agro Reus",
+              stops: buildStops([93,29,96,104,143,125,157,38,7,4,139,2,76,78,247,132], 16),
+              departures: { weekday: L31_LV, saturday: [], sunday: [] }
+            },
+            {
+              key: "tornada", label: "Tornada · Agro Reus → Oques 3", dest: "Oques 3",
+              stops: buildStops([132,79,77,3,140,5,8,39,158,126,49,144,149,105,43,93], 15),
+              departures: {
+                weekday: L31_LV.map(function (t) { return minsToHHMM(timeToMins(t) + 20); }),
+                saturday: [],
+                sunday: []
+              }
+            }
+          ]
+        },
+        {
+          id: "32", code: "L32", color: "#166534", category: "weekend",
+          name: "Oques ↔ Cementiri",
+          subtitle: "Sábados, Domingos y Festivos · 09:20 y 10:20",
+          directions: [
+            {
+              key: "anada", label: "Anada · Oques 3 → Cementiri", dest: "Cementiri",
+              stops: buildStops([93,66,129,54,87,72,11,50,155,68,31], 13),
+              departures: { weekday: [], saturday: ["09:20", "10:20"], sunday: ["09:20", "10:20"] }
+            },
+            {
+              key: "tornada", label: "Tornada · Cementiri → Oques 3", dest: "Oques 3",
+              stops: buildStops([31,69,156,51,12,88,130,67,93], 10),
+              departures: { weekday: [], saturday: ["09:43", "10:43"], sunday: ["09:43", "10:43"] }
+            }
+          ]
+        },
+        {
+          id: "33", code: "L33", color: "#14B8A6", category: "weekend",
+          name: "Oques ↔ El Pinar",
+          subtitle: "Sábados, Domingos y Festivos · 10:55, 12:50, 17:00",
+          directions: [
+            {
+              key: "anada", label: "Anada · Oques 3 → El Pinar", dest: "El Pinar",
+              stops: buildStops([93,66,129,54,116,37,154,45], 7),
+              departures: { weekday: [], saturday: ["10:55", "12:50", "17:00"], sunday: ["10:55", "12:50", "17:00"] }
+            },
+            {
+              key: "tornada", label: "Tornada · El Pinar → Oques 3", dest: "Oques 3",
+              stops: buildStops([45,136,57,61,36,115,130,67,93], 8),
+              departures: { weekday: [], saturday: ["11:02", "12:57", "17:07"], sunday: ["11:02", "12:57", "17:07"] }
+            }
+          ]
+        },
+        {
+          id: "50", code: "L50", color: "#8B4513", category: "regular",
+          name: "Aeroport ↔ Tecnoparc ↔ Rondes ↔ Centre",
+          subtitle: "Diaria cada 60' (07:25–21:25) · Aeroclub/CESDA/Mas Carpa a demanda",
+          directions: [
+            {
+              key: "anada", label: "Anada · Aeroport → Reus Centre", dest: "Reus Centre (Oques 3)",
+              stops: buildStops([1,214,165,183,207,205,203,60,18,148,46,122,10,168,128,69,156,51,12,88,130,67,93], 25),
+              departures: { weekday: L50_ALL, saturday: L50_ALL, sunday: L50_ALL }
+            },
+            {
+              key: "tornada", label: "Tornada · Reus Centre → Aeroport", dest: "Aeroport de Reus",
+              stops: buildStops([93,66,129,54,87,72,11,50,155,68,127,64,9,121,94,47,147,19,228,204,206,208,227,177,225,1], 28),
+              departures: { weekday: L50_ALL, saturday: L50_ALL, sunday: L50_ALL }
+            }
+          ]
+        },
+        {
+          id: "60", code: "L60", color: "#0284C7", category: "regular",
+          name: "Oques ↔ Mas d'Iglésies ↔ Hospital",
+          subtitle: "Solo L–V cada 20' (06:28–21:30) · Estació · URV",
+          directions: [
+            {
+              key: "anada", label: "Anada · Oques 3 → Hospital", dest: "Hospital",
+              stops: buildStops([93,118,123,219,120,194,47,224,222,170,75,117,151,199], 17),
+              departures: { weekday: L60_LV, saturday: [], sunday: [] }
+            },
+            {
+              key: "tornada", label: "Tornada · Hospital → Oques 3", dest: "Oques 3",
+              stops: buildStops([198,150,179,172,171,221,233,235,242,223,46,65,119,101,109,55,93], 17),
+              departures: { weekday: genRange("06:33", "21:13", 20), saturday: [], sunday: [] }
+            }
+          ]
+        },
+        // Líneas Escolares (A l'insti en Bus · Curs 26-27 · Naranja Oscuro #C2410C)
+        {
+          id: "40", code: "L40", color: "#C2410C", category: "school",
+          name: "Instis Matí · Montserrat → Domènech → Gaudí",
+          subtitle: "L–V lectivos · Salida 07:46 (~38 min)",
+          directions: [
+            {
+              key: "mati", label: "Matí · B. Montserrat → Inst. Domènech → Boca de la Mina", dest: "Inst. Domènech / Gaudí",
+              stops: buildStops([13,52,97,152,33,14,27,236,253,95,122,10,168,128,69,156,116,37,61,187,195,166,20], 38),
+              departures: { weekday: ["07:46"], saturday: [], sunday: [] }
+            }
+          ]
+        },
+        {
+          id: "41", code: "L41", color: "#C2410C", category: "school",
+          name: "Instis Matí · Montserrat → Misericòrdia → Gaudí → Domènech",
+          subtitle: "L–V lectivos · Salida 07:48 (~37 min)",
+          directions: [
+            {
+              key: "mati", label: "Matí · Sud-Oest → Oques 3 → Inst. Gaudí → Domènech", dest: "Inst. Gaudí / Domènech",
+              stops: buildStops([13,52,97,152,33,14,27,236,107,84,146,238,86,100,161,74,138,96,43,93,66,187,195,166,20,142,6,186,116,37,61], 37),
+              departures: { weekday: ["07:48"], saturday: [], sunday: [] }
+            }
+          ]
+        },
+        {
+          id: "42", code: "L42", color: "#C2410C", category: "school",
+          name: "Instis Matí · Sant Jordi → G. Ferrater → Roseta Mauri → Tapiró",
+          subtitle: "L–V lectivos · 07:28 (G. Ferrater) y 08:00 (Roseta/Tapiró)",
+          directions: [
+            {
+              key: "exp1", label: "Expedición 1 (07:28) · Av. Sant Jordi → Inst. G. Ferrater", dest: "Inst. Gabriel Ferrater",
+              stops: buildStops([12,88,130,67,92,112,56,110,102,71,59,159,95,122,10,168,128,69,156], 22),
+              departures: { weekday: ["07:28"], saturday: [], sunday: [] }
+            },
+            {
+              key: "exp2", label: "Expedición 2 (08:00) · Ventura Gassol → Roseta Mauri → B. Montserrat", dest: "Inst. Roseta Mauri / Tapiró",
+              stops: buildStops([155,68,127,64,9,121,94,147,75,117,18,171,221,223,28,15,16,153,98,53,13], 22),
+              departures: { weekday: ["08:00"], saturday: [], sunday: [] }
+            }
+          ]
+        },
+        {
+          id: "43", code: "L43", color: "#C2410C", category: "school",
+          name: "Instis Matí · Immaculada → Oques 2 → Inst. Tapiró",
+          subtitle: "L–V lectivos · Salida 07:56 (~26 min)",
+          directions: [
+            {
+              key: "mati", label: "Matí · Immaculada → Misericòrdia → Oques 2 → B. Montserrat", dest: "Inst. Josep Tapiró",
+              stops: buildStops([62,248,249,86,100,161,74,138,96,43,92,112,56,110,102,71,59,159,28,15,16,153,98,53,13], 26),
+              departures: { weekday: ["07:56"], saturday: [], sunday: [] }
+            }
+          ]
+        },
+        {
+          id: "44", code: "L44", color: "#C2410C", category: "school",
+          name: "Instis Tarda · Roseta Mauri → G. Ferrater → Domènech → Oques 3",
+          subtitle: "L–V lectivos · Salida 15:04 (~25 min)",
+          directions: [
+            {
+              key: "tarda", label: "Tarda · Escola E. Toda → Jutjats → Inst. Domènech → Oques 3", dest: "Inst. Domènech / Oques 3",
+              stops: buildStops([221,223,95,122,10,168,128,69,156,116,37,61,36,115,130,67,93], 25),
+              departures: { weekday: ["15:04"], saturday: [], sunday: [] }
+            }
+          ]
+        }
+      ];
+
+      // Servicio D1 BusXtu (Bus a Demanda · Verde #16A34A)
+      const D1_BUSXTU = {
+        id: "D1",
+        code: "D1",
+        color: "#16A34A",
+        name: "BusXtu · Bus a Demanda",
+        hours: "L–V laborables 06:30–21:30 · Cementiri 10:00–13:00",
+        phone: "633 500 500",
+        zones: ["El Pinar", "Cementiri", "Passeig Nord / Mineta", "Sant Joan / Xalets Quintana", "Reus Centre (Av. Sant Jordi 1)"],
+        keyStops: [12, 115, 116, 36, 37, 61, 154, 45, 136, 57, 229, 31]
+      };
+
+      const TOTAL_DIRECTIONS = BUS_LINES.reduce(function (acc, l) { return acc + l.directions.length; }, 0);
+
+      // Índice inverso parada -> líneas que pasan
+      const STOP_LINES = {};
+      BUS_LINES.forEach(function (line) {
+        const seen = new Set();
+        line.directions.forEach(function (dir) {
+          dir.stops.forEach(function (st) {
+            if (!STOP_LINES[st.code]) STOP_LINES[st.code] = [];
+            if (!seen.has(st.code)) {
+              STOP_LINES[st.code].push(line);
+              seen.add(st.code);
+            }
+          });
+        });
+      });
+
+      // =========================================================================
+      // 6. ESTADO GLOBAL
+      // =========================================================================
+      const DEFAULT_SETTINGS = {
+        provider: "maptiler",
+        maptilerKey: DEFAULT_MAPTILER_KEY,
+        maptilerStyle: "streets-v2",
+        snapping: true,
+        routingProvider: "osrm",
+        routingApiKey: ""
+      };
+
+      const state = {
+        settings: Object.assign({}, DEFAULT_SETTINGS, safeStorage.get(STORAGE_SETTINGS, {})),
+        favorites: new Set(safeStorage.get(STORAGE_FAVS, [93, 130, 198])),
+        snappedCache: safeStorage.get(STORAGE_ROUTES, {}),
+        simMode: "realtime",
+        nowMins: 0,
+        dayOfWeek: new Date().getDay(),
+        isFestiu: false,
+        activeTab: "paradas",
+        paradasView: "list",
+        paradasFilter: "all",
+        lineasFilter: "all",
+        searchQuery: "",
+        selectedStopCode: null,
+        selectedLineId: null,
+        selectedDirIdx: 0,
+        showD1: false,
+        visibleLineIds: new Set(BUS_LINES.map(function (l) { return l.id; })),
+        userLoc: null,
+        usingOsmFallback: false
+      };
+
+      // Cola secuencial de trazado por carreteras (OSRM / ORS / Mapbox)
+      const routeQueue = [];
+      const routeQueueKeys = new Set();
+      let routeQueueRunning = false;
+      let routeQueueActiveKey = null;
+
+      // Referencias de Leaflet
+      let map = null;
+      let tileLayer = null;
+      let tileErrorCount = 0;
+      let routesGroup = null;
+      let stopsGroup = null;
+      let busesGroup = null;
+      let d1Group = null;
+      let userLocMarker = null;
+      const busMarkersMap = new Map();
+      let toastTimer = null;
+
+      function showToast(msg) {
+        const el = document.getElementById("toast");
+        if (!el) return;
+        el.textContent = msg;
+        el.classList.remove("hidden");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { el.classList.add("hidden"); }, 3400);
+      }
+
+      // =========================================================================
+      // 7. MOTOR DE MAPA LEAFLET + MAPTILER + FALLBACK AUTOMÁTICO A OSM
+      // =========================================================================
+      function buildTileSpec() {
+        const prov = state.settings.provider;
+        const style = state.settings.maptilerStyle || "streets-v2";
+        const key = (state.settings.maptilerKey || DEFAULT_MAPTILER_KEY).trim();
+
+        if (prov === "maptiler" && key && !state.usingOsmFallback) {
+          const ext = style === "hybrid" ? "jpg" : "png";
+          return {
+            url: "https://api.maptiler.com/maps/" + encodeURIComponent(style) + "/256/{z}/{x}/{y}@2x." + ext + "?key=" + encodeURIComponent(key),
+            attribution: "&copy; <a href=\"https://www.maptiler.com/\" target=\"_blank\">MapTiler</a> &copy; OpenStreetMap",
+            maxZoom: 20,
+            label: "MapTiler HD (" + style + ")"
+          };
+        }
+
+        return {
+          url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+          attribution: "&copy; <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">OpenStreetMap</a>",
+          maxZoom: 19,
+          label: "OpenStreetMap"
+        };
+      }
+
+      function applyTileLayer() {
+        if (!map || typeof window.L === "undefined") return;
+        try {
+          if (tileLayer) {
+            map.removeLayer(tileLayer);
+            tileLayer = null;
+          }
+          tileErrorCount = 0;
+          const spec = buildTileSpec();
+          tileLayer = window.L.tileLayer(spec.url, {
+            attribution: spec.attribution,
+            maxZoom: spec.maxZoom,
+            crossOrigin: true
+          });
+
+          tileLayer.on("tileerror", function () {
+            if (state.settings.provider === "maptiler" && !state.usingOsmFallback) {
+              tileErrorCount++;
+              if (tileErrorCount >= 3) {
+                state.usingOsmFallback = true;
+                showToast("MapTiler no respondió. Cambiando a OpenStreetMap.");
+                applyTileLayer();
+              }
+            }
+          });
+
+          tileLayer.addTo(map);
+          updateStyleSwitcherUI();
+          updateBrandSubtitle();
+        } catch (err) {
+          console.error("Error aplicando capa de mapa:", err);
+        }
+      }
+
+      function updateZoomClass() {
+        if (!map) return;
+        const mapEl = document.getElementById("map");
+        if (!mapEl) return;
+        const z = map.getZoom();
+        mapEl.classList.remove("zoom-low", "zoom-mid", "zoom-high");
+        if (z <= 13) mapEl.classList.add("zoom-low");
+        else if (z >= 16) mapEl.classList.add("zoom-high");
+        else mapEl.classList.add("zoom-mid");
+      }
+
+      function initMapWithRetry(attempt) {
+        const tries = attempt || 0;
+        if (typeof window.L === "undefined") {
+          if (tries < 30) {
+            setTimeout(function () { initMapWithRetry(tries + 1); }, 200);
+          } else {
+            showToast("No se pudo cargar Leaflet. Comprueba tu conexión.");
+          }
+          return;
+        }
+        if (map) return;
+
+        try {
+          map = window.L.map("map", {
+            center: REUS_CENTER,
+            zoom: DEFAULT_ZOOM,
+            zoomControl: false,
+            preferCanvas: true
+          });
+
+          window.L.control.zoom({ position: "bottomright" }).addTo(map);
+
+          routesGroup = window.L.layerGroup().addTo(map);
+          d1Group = window.L.layerGroup().addTo(map);
+          stopsGroup = window.L.layerGroup().addTo(map);
+          busesGroup = window.L.layerGroup().addTo(map);
+
+          applyTileLayer();
+          updateZoomClass();
+          map.on("zoomend", updateZoomClass);
+
+          // Dibujar inmediatamente polilíneas base, paradas y buses
+          renderMapRoutes();
+          renderStopMarkers();
+          renderLiveBuses();
+
+          // Asegurar dimensiones correctas en cualquier contenedor/iframe
+          setTimeout(function () { if (map) map.invalidateSize(); }, 200);
+          window.addEventListener("resize", function () {
+            if (map) map.invalidateSize();
+          });
+
+          // Arrancar cola de trazado realista por carreteras en segundo plano
+          if (state.settings.snapping) {
+            enqueueAllRoutes();
+          }
+        } catch (err) {
+          console.error("Error inicializando Leaflet:", err);
+          showToast("Error inicializando el mapa.");
+        }
+      }
+
+      // =========================================================================
+      // 8. MOTOR DE HORARIOS, LLEGADAS Y BUSES EN TIEMPO REAL ESTIMADO
+      // =========================================================================
+      function getDayTypeFor(dayOfWeek, isFestiu) {
+        if (isFestiu || dayOfWeek === 0) return "sunday";
+        if (dayOfWeek === 6) return "saturday";
+        return "weekday";
+      }
+
+      function getCurrentDayType() {
+        return getDayTypeFor(state.dayOfWeek, state.isFestiu);
+      }
+
+      function getDayLabel(dayType, isFestiu) {
+        if (isFestiu) return "Festiu";
+        if (dayType === "sunday") return "Diumenge";
+        if (dayType === "saturday") return "Dissabte";
+        return "Laborable";
+      }
+
+      function getDeparturesForDay(dir, dayType) {
+        return (dir.departures && dir.departures[dayType]) ? dir.departures[dayType] : [];
+      }
+
+      function getStopArrivals(stopCode) {
+        const todayType = getCurrentDayType();
+        const now = state.nowMins;
+        const todayList = [];
+        const nextDayList = [];
+
+        BUS_LINES.forEach(function (line) {
+          line.directions.forEach(function (dir, dirIdx) {
+            const matches = [];
+            dir.stops.forEach(function (st, idx) {
+              if (st.code === stopCode) matches.push({ idx: idx, offset: st.offset });
+            });
+            if (matches.length === 0) return;
+
+            const depsToday = getDeparturesForDay(dir, todayType);
+            let foundToday = false;
+
+            matches.forEach(function (m) {
+              if (m.idx === dir.stops.length - 1 && dir.stops[0].code === stopCode) return;
+              depsToday.forEach(function (depStr) {
+                const passMin = timeToMins(depStr) + m.offset;
+                const wait = passMin - now;
+                if (wait >= -0.5) {
+                  foundToday = true;
+                  todayList.push({
+                    line: line,
+                    dirIdx: dirIdx,
+                    dest: dir.dest,
+                    passTime: minsToHHMM(passMin),
+                    waitMins: Math.max(0, wait),
+                    isNextDay: false
+                  });
+                }
+              });
+            });
+
+            if (!foundToday) {
+              const firstMatch = matches[0];
+              for (let dAhead = 1; dAhead <= 7; dAhead++) {
+                const nextDow = (state.dayOfWeek + dAhead) % 7;
+                const nextType = getDayTypeFor(nextDow, false);
+                const depsNext = getDeparturesForDay(dir, nextType);
+                if (depsNext.length > 0) {
+                  const firstPass = timeToMins(depsNext[0]) + firstMatch.offset;
+                  const waitTotal = (dAhead * 1440 - now) + firstPass;
+                  nextDayList.push({
+                    line: line,
+                    dirIdx: dirIdx,
+                    dest: dir.dest,
+                    passTime: minsToHHMM(firstPass),
+                    waitMins: waitTotal,
+                    dayLabel: dAhead === 1 ? "Mañana" : DAY_NAMES[nextDow],
+                    isNextDay: true
+                  });
+                  break;
+                }
+              }
+            }
+          });
+        });
+
+        todayList.sort(function (a, b) { return a.waitMins - b.waitMins; });
+        nextDayList.sort(function (a, b) { return a.waitMins - b.waitMins; });
+        return { todayList: todayList, nextDayList: nextDayList };
+      }
+
+      function getNextPassInDirection(dir, stopIdx) {
+        const offset = dir.stops[stopIdx].offset;
+        const now = state.nowMins;
+        const todayType = getCurrentDayType();
+        const depsToday = getDeparturesForDay(dir, todayType);
+
+        for (let i = 0; i < depsToday.length; i++) {
+          const passMin = timeToMins(depsToday[i]) + offset;
+          if (passMin - now >= -0.5) {
+            return {
+              today: true,
+              passTime: minsToHHMM(passMin),
+              waitMins: Math.max(0, passMin - now)
+            };
+          }
+        }
+        for (let dAhead = 1; dAhead <= 7; dAhead++) {
+          const nextDow = (state.dayOfWeek + dAhead) % 7;
+          const depsNext = getDeparturesForDay(dir, getDayTypeFor(nextDow, false));
+          if (depsNext.length > 0) {
+            const firstPass = timeToMins(depsNext[0]) + offset;
+            return {
+              today: false,
+              passTime: minsToHHMM(firstPass),
+              dayLabel: dAhead === 1 ? "Mañana" : DAY_NAMES[nextDow],
+              waitMins: (dAhead * 1440 - now) + firstPass
+            };
+          }
+        }
+        return null;
+      }
+
+      function interpolateAlongCoords(coords, fraction) {
+        if (!coords || coords.length === 0) return null;
+        if (coords.length === 1) return { lat: coords[0][0], lon: coords[0][1], bearing: 0 };
+
+        const f = Math.max(0, Math.min(1, fraction));
+        const segLens = [];
+        let total = 0;
+        for (let i = 1; i < coords.length; i++) {
+          const d = haversineMeters(coords[i - 1][0], coords[i - 1][1], coords[i][0], coords[i][1]);
+          segLens.push(d);
+          total += d;
+        }
+        const target = f * total;
+        let acc = 0;
+        for (let i = 0; i < segLens.length; i++) {
+          if (acc + segLens[i] >= target || i === segLens.length - 1) {
+            const localF = segLens[i] > 0 ? (target - acc) / segLens[i] : 0;
+            const a = coords[i];
+            const b = coords[i + 1];
+            return {
+              lat: a[0] + (b[0] - a[0]) * localF,
+              lon: a[1] + (b[1] - a[1]) * localF,
+              bearing: computeBearing(a[0], a[1], b[0], b[1])
+            };
+          }
+          acc += segLens[i];
+        }
+        return { lat: coords[0][0], lon: coords[0][1], bearing: 0 };
+      }
+
+      function getActiveBuses() {
+        const todayType = getCurrentDayType();
+        const now = state.nowMins;
+        const active = [];
+
+        BUS_LINES.forEach(function (line) {
+          line.directions.forEach(function (dir, dirIdx) {
+            const deps = getDeparturesForDay(dir, todayType);
+            if (!deps.length || dir.stops.length < 2) return;
+
+            const totalDur = Math.max(1, dir.stops[dir.stops.length - 1].offset);
+            const cacheKey = line.id + "_" + dir.key;
+            const snapped = state.settings.snapping ? state.snappedCache[cacheKey] : null;
+
+            deps.forEach(function (depStr, tripIdx) {
+              const startMin = timeToMins(depStr);
+              const elapsed = now - startMin;
+              if (elapsed < 0 || elapsed > totalDur) return;
+
+              let segIdx = 0;
+              for (let i = 0; i < dir.stops.length - 1; i++) {
+                if (elapsed >= dir.stops[i].offset && elapsed <= dir.stops[i + 1].offset) {
+                  segIdx = i;
+                  break;
+                }
+                if (elapsed > dir.stops[i + 1].offset) segIdx = i + 1;
+              }
+              if (segIdx >= dir.stops.length - 1) segIdx = dir.stops.length - 2;
+
+              const stA = dir.stops[segIdx];
+              const stB = dir.stops[segIdx + 1];
+              const stopObjA = STOPS[stA.code];
+              const stopObjB = STOPS[stB.code];
+              if (!stopObjA || !stopObjB) return;
+
+              const segDur = Math.max(0.1, stB.offset - stA.offset);
+              const frac = Math.max(0, Math.min(1, (elapsed - stA.offset) / segDur));
+
+              let lat, lon, bearing;
+              const legCoords = (snapped && Array.isArray(snapped.legs) && snapped.legs[segIdx] && snapped.legs[segIdx].length >= 2)
+                ? snapped.legs[segIdx]
+                : null;
+
+              if (legCoords) {
+                const pos = interpolateAlongCoords(legCoords, frac);
+                lat = pos.lat;
+                lon = pos.lon;
+                bearing = pos.bearing;
+              } else {
+                lat = stopObjA.lat + (stopObjB.lat - stopObjA.lat) * frac;
+                lon = stopObjA.lon + (stopObjB.lon - stopObjA.lon) * frac;
+                bearing = computeBearing(stopObjA.lat, stopObjA.lon, stopObjB.lat, stopObjB.lon);
+              }
+
+              const etaNext = Math.max(0, Math.round(stB.offset - elapsed));
+              active.push({
+                uid: line.id + "_" + dir.key + "_" + tripIdx,
+                line: line,
+                dir: dir,
+                dirIdx: dirIdx,
+                dest: dir.dest,
+                depStr: depStr,
+                lat: lat,
+                lon: lon,
+                bearing: bearing,
+                prevStopName: stopObjA.name,
+                nextStopCode: stopObjB.code,
+                nextStopName: stopObjB.name,
+                nextStopTime: minsToHHMM(startMin + stB.offset),
+                etaNext: etaNext,
+                progressPct: Math.min(100, Math.max(2, Math.round((elapsed / totalDur) * 100))),
+                remainingStops: dir.stops.length - 1 - segIdx
+              });
+            });
+          });
+        });
+
+        return active;
+      }
+
+      // =========================================================================
+      // 9. TRAZADO REALISTA POR CARRETERAS (OSRM / ORS / MAPBOX) + COLA + CACHÉ
+      // =========================================================================
+      function simplifyCoords(coords, tolerance) {
+        if (!coords || coords.length <= 2) return coords || [];
+        const sqTol = tolerance * tolerance;
+
+        function getSqSegDist(p, p1, p2) {
+          let x = p1[0], y = p1[1];
+          let dx = p2[0] - x, dy = p2[1] - y;
+          if (dx !== 0 || dy !== 0) {
+            const t = ((p[0] - x) * dx + (p[1] - y) * dy) / (dx * dx + dy * dy);
+            if (t > 1) { x = p2[0]; y = p2[1]; }
+            else if (t > 0) { x += dx * t; y += dy * t; }
+          }
+          dx = p[0] - x;
+          dy = p[1] - y;
+          return dx * dx + dy * dy;
+        }
+
+        function dpStep(pts, first, last, out) {
+          let maxSq = sqTol, idx = -1;
+          for (let i = first + 1; i < last; i++) {
+            const sq = getSqSegDist(pts[i], pts[first], pts[last]);
+            if (sq > maxSq) { idx = i; maxSq = sq; }
+          }
+          if (idx !== -1) {
+            if (idx - first > 1) dpStep(pts, first, idx, out);
+            out.push(pts[idx]);
+            if (last - idx > 1) dpStep(pts, idx, last, out);
+          }
+        }
+
+        const out = [coords[0]];
+        dpStep(coords, 0, coords.length - 1, out);
+        out.push(coords[coords.length - 1]);
+        return out.map(function (pt) {
+          return [Math.round(pt[0] * 1e5) / 1e5, Math.round(pt[1] * 1e5) / 1e5];
+        });
+      }
+
+      function flattenLegs(legs) {
+        const full = [];
+        legs.forEach(function (leg, idx) {
+          if (!Array.isArray(leg)) return;
+          for (let i = 0; i < leg.length; i++) {
+            if (idx > 0 && i === 0) continue;
+            full.push(leg[i]);
+          }
+        });
+        return full;
+      }
+
+      function updateRouteProgressUI(currentCode) {
+        const pill = document.getElementById("route-progress-pill");
+        const txt = document.getElementById("route-progress-text");
+        if (!pill || !txt) return;
+
+        if (!state.settings.snapping || (!routeQueueRunning && routeQueue.length === 0)) {
+          pill.classList.add("hidden");
+          return;
+        }
+        const cachedCount = Object.keys(state.snappedCache).length;
+        pill.classList.remove("hidden");
+        txt.textContent = currentCode
+          ? "Trazando carreteras: " + currentCode + " (" + cachedCount + "/" + TOTAL_DIRECTIONS + ")"
+          : "Trazando carreteras (" + cachedCount + "/" + TOTAL_DIRECTIONS + ")...";
+      }
+
+      async function fetchWithTimeout(url, opts, timeoutMs) {
+        const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+        const timer = controller ? setTimeout(function () { controller.abort(); }, timeoutMs) : null;
+        try {
+          const finalOpts = Object.assign({}, opts || {}, controller ? { signal: controller.signal } : {});
+          return await fetch(url, finalOpts);
+        } finally {
+          if (timer) clearTimeout(timer);
+        }
+      }
+
+      function extractLegsFromOSRM(data, pts) {
+        const route = data && data.routes && data.routes[0];
+        if (!route || !Array.isArray(route.legs)) return null;
+        return route.legs.map(function (leg, i) {
+          const coords = [];
+          if (Array.isArray(leg.steps)) {
+            leg.steps.forEach(function (step) {
+              const g = step && step.geometry && step.geometry.coordinates;
+              if (!Array.isArray(g)) return;
+              g.forEach(function (pair) {
+                const lat = pair[1], lon = pair[0];
+                const prev = coords[coords.length - 1];
+                if (!prev || prev[0] !== lat || prev[1] !== lon) coords.push([lat, lon]);
+              });
+            });
+          }
+          if (coords.length < 2 && pts[i] && pts[i + 1]) {
+            return [[pts[i].lat, pts[i].lon], [pts[i + 1].lat, pts[i + 1].lon]];
+          }
+          return simplifyCoords(coords, 0.000045);
+        });
+      }
+
+      async function fetchRoadGeometry(line, dir) {
+        const pts = dir.stops.map(function (s) { return STOPS[s.code]; }).filter(Boolean);
+        if (pts.length < 2) return null;
+
+        const provider = state.settings.routingProvider || "osrm";
+        const apiKey = (state.settings.routingApiKey || "").trim();
+
+        if (provider === "ors" && apiKey) {
+          const res = await fetchWithTimeout("https://api.openrouteservice.org/v2/directions/driving-car/geojson", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": apiKey },
+            body: JSON.stringify({ coordinates: pts.map(function (p) { return [p.lon, p.lat]; }) })
+          }, 10000);
+          if (!res.ok) throw new Error("ORS HTTP " + res.status);
+          const data = await res.json();
+          const feat = data.features && data.features[0];
+          if (feat && feat.geometry && Array.isArray(feat.geometry.coordinates)) {
+            const full = feat.geometry.coordinates.map(function (pair) { return [pair[1], pair[0]]; });
+            const wp = (feat.properties && feat.properties.way_points) || [];
+            const legs = [];
+            for (let i = 0; i < pts.length - 1; i++) {
+              const a = wp[i] != null ? wp[i] : 0;
+              const b = wp[i + 1] != null ? wp[i + 1] : full.length - 1;
+              const slice = full.slice(a, b + 1);
+              legs.push(slice.length >= 2 ? simplifyCoords(slice, 0.000045) : [[pts[i].lat, pts[i].lon], [pts[i + 1].lat, pts[i + 1].lon]]);
+            }
+            return { legs: legs, full: flattenLegs(legs) };
+          }
+          return null;
+        }
+
+        if (provider === "mapbox" && apiKey) {
+          const allLegs = [];
+          const chunkSize = 25;
+          for (let start = 0; start < pts.length - 1; start += chunkSize - 1) {
+            const chunk = pts.slice(start, Math.min(pts.length, start + chunkSize));
+            const coordStr = chunk.map(function (p) { return p.lon + "," + p.lat; }).join(";");
+            const url = "https://api.mapbox.com/directions/v5/mapbox/driving/" + coordStr + "?geometries=geojson&steps=true&overview=full&access_token=" + encodeURIComponent(apiKey);
+            const res = await fetchWithTimeout(url, null, 10000);
+            if (!res.ok) throw new Error("Mapbox HTTP " + res.status);
+            const data = await res.json();
+            const chunkLegs = extractLegsFromOSRM(data, chunk);
+            if (chunkLegs) allLegs.push.apply(allLegs, chunkLegs);
+          }
+          if (allLegs.length > 0) return { legs: allLegs, full: flattenLegs(allLegs) };
+          return null;
+        }
+
+        // OSRM público gratuito por defecto
+        const coordStr = pts.map(function (p) { return p.lon + "," + p.lat; }).join(";");
+        const url = "https://router.project-osrm.org/route/v1/driving/" + coordStr + "?overview=full&geometries=geojson&steps=true";
+        const res = await fetchWithTimeout(url, null, 9500);
+        if (!res.ok) throw new Error("OSRM HTTP " + res.status);
+        const data = await res.json();
+        const legs = extractLegsFromOSRM(data, pts);
+        if (!legs || legs.length === 0) return null;
+        return { legs: legs, full: flattenLegs(legs) };
+      }
+
+      function enqueueRoute(line, dir, highPriority) {
+        if (!state.settings.snapping) return;
+        const key = line.id + "_" + dir.key;
+        if (state.snappedCache[key] && Array.isArray(state.snappedCache[key].legs)) return;
+        if (routeQueueActiveKey === key) return;
+
+        if (routeQueueKeys.has(key)) {
+          if (highPriority) {
+            const idx = routeQueue.findIndex(function (item) { return item.key === key; });
+            if (idx > 0) {
+              const moved = routeQueue.splice(idx, 1)[0];
+              routeQueue.unshift(moved);
+            }
+          }
+          return;
+        }
+
+        const item = { key: key, line: line, dir: dir, retries: 0 };
+        routeQueueKeys.add(key);
+        if (highPriority) routeQueue.unshift(item);
+        else routeQueue.push(item);
+
+        processRouteQueue();
+      }
+
+      function enqueueAllRoutes() {
+        if (!state.settings.snapping) return;
+        if (state.selectedLineId) {
+          const sel = BUS_LINES.find(function (l) { return l.id === state.selectedLineId; });
+          if (sel) {
+            const selDir = sel.directions[state.selectedDirIdx] || sel.directions[0];
+            enqueueRoute(sel, selDir, true);
+          }
+        }
+        const ordered = BUS_LINES.filter(function (l) { return state.visibleLineIds.has(l.id) && l.category === "regular"; })
+          .concat(BUS_LINES.filter(function (l) { return state.visibleLineIds.has(l.id) && l.category !== "regular"; }))
+          .concat(BUS_LINES.filter(function (l) { return !state.visibleLineIds.has(l.id); }));
+
+        ordered.forEach(function (line) {
+          line.directions.forEach(function (dir) { enqueueRoute(line, dir, false); });
+        });
+      }
+
+      async function processRouteQueue() {
+        if (routeQueueRunning) return;
+        routeQueueRunning = true;
+
+        while (routeQueue.length > 0 && state.settings.snapping) {
+          const item = routeQueue.shift();
+          routeQueueKeys.delete(item.key);
+
+          if (state.snappedCache[item.key] && Array.isArray(state.snappedCache[item.key].legs)) {
+            continue;
+          }
+
+          routeQueueActiveKey = item.key;
+          updateRouteProgressUI(item.line.code);
+
+          try {
+            const geom = await fetchRoadGeometry(item.line, item.dir);
+            if (geom && geom.legs && geom.legs.length > 0) {
+              state.snappedCache[item.key] = geom;
+              safeStorage.set(STORAGE_ROUTES, state.snappedCache);
+              renderMapRoutes();
+              renderLiveBuses();
+            }
+          } catch (err) {
+            if (item.retries < 1 && state.settings.snapping) {
+              item.retries++;
+              routeQueueKeys.add(item.key);
+              routeQueue.push(item);
+            }
+          } finally {
+            routeQueueActiveKey = null;
+          }
+
+          if (routeQueue.length > 0 && state.settings.snapping) {
+            await new Promise(function (resolve) { setTimeout(resolve, 400); });
+          }
+        }
+
+        routeQueueRunning = false;
+        updateRouteProgressUI(null);
+      }
+
+      // =========================================================================
+      // 10. RENDERIZADO DE CAPAS DEL MAPA (RUTAS, PARADAS, BUSES EN VIVO, D1)
+      // =========================================================================
+      function renderMapRoutes() {
+        if (!map || !routesGroup || !d1Group || typeof window.L === "undefined") return;
+        try {
+          routesGroup.clearLayers();
+          d1Group.clearLayers();
+
+          const selectedId = state.selectedLineId;
+
+          BUS_LINES.forEach(function (line) {
+            if (!state.visibleLineIds.has(line.id)) return;
+            const isSelected = selectedId === line.id;
+
+            line.directions.forEach(function (dir, dirIdx) {
+              if (isSelected && dirIdx !== state.selectedDirIdx) return;
+
+              const cacheKey = line.id + "_" + dir.key;
+              const snappedEntry = state.settings.snapping ? state.snappedCache[cacheKey] : null;
+              const snappedCoords = snappedEntry && Array.isArray(snappedEntry.full) ? snappedEntry.full : null;
+              const coords = snappedCoords || dir.stops.map(function (s) { return STOPS[s.code]; }).filter(Boolean).map(function (s) { return [s.lat, s.lon]; });
+              if (coords.length < 2) return;
+
+              if (state.settings.snapping && !snappedCoords) {
+                enqueueRoute(line, dir, isSelected);
+              }
+
+              if (isSelected) {
+                window.L.polyline(coords, {
+                  color: "#ffffff",
+                  weight: 9,
+                  opacity: 0.92,
+                  lineJoin: "round",
+                  lineCap: "round"
+                }).addTo(routesGroup);
+              }
+
+              window.L.polyline(coords, {
+                color: line.color,
+                weight: isSelected ? 5.5 : (selectedId ? 2.2 : 3.5),
+                opacity: isSelected ? 0.98 : (selectedId ? 0.24 : 0.76),
+                dashArray: line.category === "school" && !isSelected ? "6 6" : null,
+                lineJoin: "round",
+                lineCap: "round"
+              }).addTo(routesGroup);
+            });
+          });
+
+          if (state.showD1) {
+            D1_BUSXTU.keyStops.forEach(function (c) {
+              const st = STOPS[c];
+              if (!st) return;
+              window.L.circleMarker([st.lat, st.lon], {
+                radius: 10,
+                color: D1_BUSXTU.color,
+                fillColor: D1_BUSXTU.color,
+                fillOpacity: 0.22,
+                weight: 2.5,
+                dashArray: "4 4"
+              }).bindTooltip("D1 BusXtu · " + st.name + " (SMS " + st.code + ")", { direction: "top" }).addTo(d1Group);
+            });
+          }
+        } catch (err) {
+          console.error("Error dibujando rutas:", err);
+        }
+      }
+
+      function renderStopMarkers() {
+        if (!map || !stopsGroup || typeof window.L === "undefined") return;
+        try {
+          stopsGroup.clearLayers();
+          const activeCodes = new Set();
+
+          if (state.selectedLineId) {
+            const line = BUS_LINES.find(function (l) { return l.id === state.selectedLineId; });
+            if (line) {
+              const dir = line.directions[state.selectedDirIdx] || line.directions[0];
+              dir.stops.forEach(function (s) { activeCodes.add(s.code); });
+            }
+          } else {
+            BUS_LINES.forEach(function (line) {
+              if (!state.visibleLineIds.has(line.id)) return;
+              line.directions.forEach(function (dir) {
+                dir.stops.forEach(function (s) { activeCodes.add(s.code); });
+              });
+            });
+          }
+
+          if (state.selectedStopCode) activeCodes.add(state.selectedStopCode);
+          const selectedLine = BUS_LINES.find(function (l) { return l.id === state.selectedLineId; });
+
+          activeCodes.forEach(function (code) {
+            const st = STOPS[code];
+            if (!st) return;
+            const isSel = state.selectedStopCode === code;
+            const linesAtStop = STOP_LINES[code];
+            const borderColor = selectedLine ? selectedLine.color : (linesAtStop && linesAtStop[0] ? linesAtStop[0].color : "#0f172a");
+
+            const icon = window.L.divIcon({
+              className: "stop-marker-wrap",
+              html: "<div class=\"stop-dot " + (st.hub ? "is-hub " : "") + (st.onDemand ? "is-demand " : "") + (isSel ? "is-selected" : "") + "\" style=\"border-color:" + borderColor + "\"></div>",
+              iconSize: [18, 18],
+              iconAnchor: [9, 9]
+            });
+
+            const m = window.L.marker([st.lat, st.lon], { icon: icon, zIndexOffset: isSel ? 900 : (st.hub ? 200 : 100) });
+            m.bindTooltip("<strong>SMS " + st.code + "</strong> · " + escapeHtml(st.name) + (st.onDemand ? " (Bus a demanda)" : ""), {
+              direction: "top",
+              offset: [0, -8]
+            });
+            m.on("click", function () { openStopDetail(code, false); });
+            m.addTo(stopsGroup);
+          });
+        } catch (err) {
+          console.error("Error dibujando paradas:", err);
+        }
+      }
+
+      function buildBusPopupHTML(bus) {
+        return "" +
+          "<div class=\"bus-popup\">" +
+            "<div class=\"bus-popup-head\">" +
+              "<span class=\"line-badge\" style=\"background:" + bus.line.color + "; font-size:12px; padding:4px 9px;\">" + bus.line.code + "</span>" +
+              "<div>" +
+                "<div class=\"bus-popup-title\">" + escapeHtml(bus.dest) + "</div>" +
+                "<div class=\"bus-popup-sub\">Salida " + bus.depStr + " h · " + bus.progressPct + "% completado</div>" +
+              "</div>" +
+            "</div>" +
+            "<div style=\"font-size:11.5px; color:#334155; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:8px; line-height:1.45;\">" +
+              "<div><strong>Tramo:</strong> " + escapeHtml(bus.prevStopName) + " → <strong>" + escapeHtml(bus.nextStopName) + "</strong></div>" +
+              "<div><strong>Próxima parada:</strong> " + (bus.etaNext <= 0 ? "Llegando ahora" : "En " + bus.etaNext + " min") + " (" + bus.nextStopTime + " h)</div>" +
+              "<div><strong>Paradas restantes:</strong> " + bus.remainingStops + "</div>" +
+            "</div>" +
+            "<button class=\"bus-popup-btn\" onclick=\"window.__inspectLine('" + bus.line.id + "', " + bus.dirIdx + ")\">" +
+              "Ver desglose completo (" + bus.line.code + ") →" +
+            "</button>" +
+          "</div>";
+      }
+
+      function renderLiveBuses() {
+        const allActive = getActiveBuses();
+        const countEl = document.getElementById("live-count");
+        if (countEl) countEl.textContent = String(allActive.length);
+
+        const nightBanner = document.getElementById("top-night-banner");
+        if (nightBanner) nightBanner.classList.toggle("hidden", allActive.length > 0);
+
+        if (!map || !busesGroup || typeof window.L === "undefined") return;
+
+        try {
+          const visible = allActive.filter(function (b) { return state.visibleLineIds.has(b.line.id); });
+          const seen = new Set();
+
+          visible.forEach(function (bus) {
+            seen.add(bus.uid);
+            const html = "<div class=\"bus-pill\" style=\"background:" + bus.line.color + "\"><span>" + bus.line.code + "</span><span class=\"bus-dir-arrow\" style=\"transform:rotate(" + Math.round(bus.bearing) + "deg)\">▲</span></div>";
+
+            if (busMarkersMap.has(bus.uid)) {
+              const entry = busMarkersMap.get(bus.uid);
+              entry.marker.setLatLng([bus.lat, bus.lon]);
+              entry.bus = bus;
+              const markerEl = entry.marker.getElement();
+              if (markerEl) {
+                const arrow = markerEl.querySelector(".bus-dir-arrow");
+                if (arrow) arrow.style.transform = "rotate(" + Math.round(bus.bearing) + "deg)";
+              }
+              if (entry.marker.isPopupOpen()) {
+                entry.marker.setPopupContent(buildBusPopupHTML(bus));
+              }
+            } else {
+              const icon = window.L.divIcon({
+                className: "bus-marker-smooth",
+                html: html,
+                iconSize: [54, 24],
+                iconAnchor: [27, 12]
+              });
+              const marker = window.L.marker([bus.lat, bus.lon], { icon: icon, zIndexOffset: 1500 });
+              marker.bindPopup(function () {
+                const current = busMarkersMap.get(bus.uid);
+                return buildBusPopupHTML(current ? current.bus : bus);
+              }, { maxWidth: 290, offset: [0, -6] });
+              marker.addTo(busesGroup);
+              busMarkersMap.set(bus.uid, { marker: marker, bus: bus });
+            }
+          });
+
+          busMarkersMap.forEach(function (entry, uid) {
+            if (!seen.has(uid)) {
+              busesGroup.removeLayer(entry.marker);
+              busMarkersMap.delete(uid);
+            }
+          });
+        } catch (err) {
+          console.error("Error dibujando buses en vivo:", err);
+        }
+      }
+
+      // =========================================================================
+      // 11. UI SUPERIOR, CHIPS Y ESTILOS
+      // =========================================================================
+      function updateClockAndTopBar() {
+        const clockText = document.getElementById("clock-text");
+        const clockPill = document.getElementById("clock-pill");
+        const dayPill = document.getElementById("day-pill");
+
+        if (clockText) clockText.textContent = minsToHHMMSS(state.nowMins);
+
+        const isNight = state.nowMins < 5 * 60 + 25 || state.nowMins >= 23 * 60;
+        if (clockPill) clockPill.classList.toggle("is-night", isNight);
+
+        if (dayPill) dayPill.textContent = getDayLabel(getCurrentDayType(), state.isFestiu);
+
+        document.querySelectorAll(".sim-btn").forEach(function (btn) {
+          btn.classList.toggle("active", btn.dataset.sim === state.simMode);
+        });
+
+        const festiuCheck = document.getElementById("festiu-check");
+        if (festiuCheck) festiuCheck.checked = state.isFestiu;
+      }
+
+      function updateStyleSwitcherUI() {
+        const sw = document.getElementById("style-switcher");
+        if (!sw) return;
+        const isMapTiler = state.settings.provider === "maptiler" && !state.usingOsmFallback;
+        sw.classList.toggle("hidden", !isMapTiler);
+        sw.querySelectorAll(".style-pill").forEach(function (btn) {
+          btn.classList.toggle("active", btn.dataset.style === state.settings.maptilerStyle);
+        });
+      }
+
+      function updateBrandSubtitle() {
+        const el = document.getElementById("brand-subtitle");
+        if (!el) return;
+        el.textContent = "Reus Transport · " + buildTileSpec().label;
+      }
+
+      function renderLineChips() {
+        const wrap = document.getElementById("line-chips");
+        if (!wrap) return;
+        const allOn = state.visibleLineIds.size === BUS_LINES.length && !state.showD1;
+        const schoolIds = ["40", "41", "42", "43", "44"];
+        const allSchoolsOn = schoolIds.every(function (id) { return state.visibleLineIds.has(id); });
+
+        let html = "<button class=\"line-chip " + (allOn ? "is-on" : "") + "\" style=\"" + (allOn ? "background:#0f172a" : "") + "\" onclick=\"window.__toggleAllLines()\">Todas</button>";
+
+        BUS_LINES.filter(function (l) { return l.category !== "school"; }).forEach(function (line) {
+          const on = state.visibleLineIds.has(line.id);
+          html += "<button class=\"line-chip " + (on ? "is-on" : "is-dim") + "\" style=\"" + (on ? "background:" + line.color : "") + "\" onclick=\"window.__toggleLineChip('" + line.id + "')\">" + line.code + "</button>";
+        });
+
+        html += "<button class=\"line-chip " + (allSchoolsOn ? "is-on" : "is-dim") + "\" style=\"" + (allSchoolsOn ? "background:#C2410C" : "") + "\" onclick=\"window.__toggleSchoolChips()\">L40–L44 Instis</button>";
+        html += "<button class=\"line-chip " + (state.showD1 ? "is-on" : "is-dim") + "\" style=\"" + (state.showD1 ? "background:" + D1_BUSXTU.color : "") + "\" onclick=\"window.__toggleD1Chip()\">D1 BusXtu</button>";
+
+        wrap.innerHTML = html;
+      }
+
+      // =========================================================================
+      // 12. PANEL LATERAL / BOTTOM-SHEET (PARADAS / LÍNEAS / EN VIVO)
+      // =========================================================================
+      function renderDrawer() {
+        const body = document.getElementById("drawer-body");
+        if (!body) return;
+        try {
+          if (state.activeTab === "paradas") {
+            if (state.paradasView === "detail" && state.selectedStopCode && STOPS[state.selectedStopCode]) {
+              renderStopDetail(body, state.selectedStopCode);
+            } else {
+              renderStopsList(body);
+            }
+          } else if (state.activeTab === "lineas") {
+            if (state.selectedLineId) {
+              renderLineThermometer(body, state.selectedLineId);
+            } else {
+              renderLinesList(body);
+            }
+          } else {
+            renderLiveTab(body);
+          }
+        } catch (err) {
+          console.error("Error renderizando drawer:", err);
+        }
+      }
+
+      function renderStopsList(container) {
+        const q = state.searchQuery.trim().toLowerCase();
+        let list = Object.values(STOPS);
+
+        if (q) {
+          list = list.filter(function (st) {
+            return st.name.toLowerCase().includes(q) || String(st.code).includes(q);
+          });
+        } else if (state.paradasFilter === "favs") {
+          list = list.filter(function (st) { return state.favorites.has(st.code); });
+        }
+
+        if (state.userLoc) {
+          list.forEach(function (st) {
+            st._dist = haversineMeters(state.userLoc.lat, state.userLoc.lon, st.lat, st.lon);
+          });
+        }
+
+        if (state.paradasFilter === "nearby" && state.userLoc) {
+          list.sort(function (a, b) { return a._dist - b._dist; });
+        } else if (!q) {
+          list.sort(function (a, b) {
+            const fa = state.favorites.has(a.code) ? 0 : 1;
+            const fb = state.favorites.has(b.code) ? 0 : 1;
+            if (fa !== fb) return fa - fb;
+            const ha = a.hub ? 0 : 1;
+            const hb = b.hub ? 0 : 1;
+            if (ha !== hb) return ha - hb;
+            return a.name.localeCompare(b.name);
+          });
+        }
+
+        const shown = list.slice(0, 48);
+
+        let html = "" +
+          "<div class=\"search-row\">" +
+            "<div class=\"search-wrap\">" +
+              "<svg width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"M21 21l-4.35-4.35\"/></svg>" +
+              "<input id=\"stop-search\" class=\"search-input\" type=\"text\" value=\"" + escapeHtml(state.searchQuery) + "\" placeholder=\"Buscar parada o SMS (93, 130, 198...)\" />" +
+              (state.searchQuery ? "<button class=\"search-clear\" onclick=\"window.__clearSearch()\">✕</button>" : "") +
+            "</div>" +
+            "<button class=\"btn-primary\" onclick=\"window.__locateUser()\" title=\"Paradas cercanas por GPS\">" +
+              "<svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\"><circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"M12 2v4m0 12v4M2 12h4m12 0h4\"/></svg>" +
+              "<span>Cerca</span>" +
+            "</button>" +
+          "</div>" +
+          "<div class=\"pill-row\">" +
+            "<button class=\"btn-soft " + (state.paradasFilter === "all" ? "active" : "") + "\" onclick=\"window.__setParadasFilter('all')\">Todas (" + Object.keys(STOPS).length + ")</button>" +
+            "<button class=\"btn-soft " + (state.paradasFilter === "favs" ? "active" : "") + "\" onclick=\"window.__setParadasFilter('favs')\">★ Favoritas (" + state.favorites.size + ")</button>" +
+            "<button class=\"btn-soft " + (state.paradasFilter === "nearby" ? "active" : "") + "\" onclick=\"window.__locateUser()\">📍 Cercanas</button>" +
+          "</div>";
+
+        if (shown.length === 0) {
+          html += "<div class=\"card\" style=\"text-align:center; padding:24px;\"><div style=\"font-weight:800; font-size:13px;\">No hay paradas que coincidan</div><div style=\"font-size:11.5px; color:var(--text-muted); margin-top:4px;\">Prueba con \"Oques\", \"RENFE\", \"Hospital\", \"Aeroport\" o un código SMS.</div></div>";
+        } else {
+          shown.forEach(function (st) {
+            const linesHere = STOP_LINES[st.code] || [];
+            const arr = getStopArrivals(st.code);
+            const next = arr.todayList[0] || arr.nextDayList[0];
+            const isFav = state.favorites.has(st.code);
+
+            let etaHtml = "<span class=\"sms-tag\">BusXtu</span>";
+            if (next && !next.isNextDay) {
+              const cls = next.waitMins <= 1 ? "eta-now" : (next.waitMins <= 6 ? "eta-soon" : "eta-later");
+              etaHtml = "<span class=\"eta-pill " + cls + "\">" + next.line.code + " · " + formatWait(next.waitMins) + "</span>";
+            } else if (next && next.isNextDay) {
+              etaHtml = "<span class=\"eta-pill eta-night\">🌙 " + next.line.code + " " + next.passTime + "</span>";
+            }
+
+            const distTxt = (state.userLoc && st._dist !== undefined)
+              ? "<span style=\"font-size:10px; font-weight:800; color:#1d4ed8; background:#dbeafe; padding:2px 6px; border-radius:6px;\">" + (st._dist < 1000 ? Math.round(st._dist) + " m" : (st._dist / 1000).toFixed(1) + " km") + "</span>"
+              : "";
+
+            html += "" +
+              "<div class=\"card card-click\" onclick=\"window.__openStop(" + st.code + ", true)\" style=\"display:flex; align-items:center; justify-content:space-between; gap:8px;\">" +
+                "<div style=\"min-width:0; flex:1;\">" +
+                  "<div style=\"display:flex; align-items:center; gap:6px;\">" +
+                    "<button class=\"star-btn " + (isFav ? "is-fav" : "") + "\" onclick=\"event.stopPropagation(); window.__toggleFav(" + st.code + ")\" title=\"Favorita\">★</button>" +
+                    "<span class=\"sms-tag\">SMS " + st.code + "</span>" +
+                    "<span style=\"font-weight:800; font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;\">" + escapeHtml(st.name) + "</span>" +
+                    distTxt +
+                  "</div>" +
+                  "<div class=\"pill-row\" style=\"margin-top:6px; padding-left:22px;\">" +
+                    linesHere.map(function (l) { return "<span class=\"line-badge\" style=\"background:" + l.color + "\">" + l.code + "</span>"; }).join("") +
+                    (st.onDemand ? "<span class=\"demand-tag\">Bus a demanda</span>" : "") +
+                  "</div>" +
+                "</div>" +
+                "<div style=\"flex-shrink:0;\">" + etaHtml + "</div>" +
+              "</div>";
+          });
+        }
+
+        container.innerHTML = html;
+
+        const inp = document.getElementById("stop-search");
+        if (inp) {
+          inp.addEventListener("input", function (e) {
+            state.searchQuery = e.target.value;
+            const pos = e.target.selectionStart;
+            renderDrawer();
+            const again = document.getElementById("stop-search");
+            if (again) { again.focus(); again.setSelectionRange(pos, pos); }
+          });
+        }
+      }
+
+      function renderStopDetail(container, stopCode) {
+        const st = STOPS[stopCode];
+        const linesHere = STOP_LINES[stopCode] || [];
+        const arr = getStopArrivals(stopCode);
+        const isFav = state.favorites.has(stopCode);
+
+        let html = "" +
+          "<button class=\"back-link\" onclick=\"window.__backToStops()\">← Volver a paradas</button>" +
+          "<div class=\"card\">" +
+            "<div style=\"display:flex; align-items:flex-start; justify-content:space-between; gap:8px;\">" +
+              "<div>" +
+                "<div class=\"pill-row\">" +
+                  "<span class=\"sms-tag\" style=\"background:#0f172a; color:#fff;\">SMS " + st.code + "</span>" +
+                  (st.approx ? "<span class=\"demand-tag\">coord. aprox.</span>" : "<span style=\"font-size:10px; font-weight:800; background:#dcfce7; color:#166534; padding:2px 6px; border-radius:6px;\">GTFS Exacta</span>") +
+                "</div>" +
+                "<h2 style=\"margin:6px 0 0; font-size:16px; font-weight:900;\">" + escapeHtml(st.name) + "</h2>" +
+              "</div>" +
+              "<div style=\"display:flex; gap:6px;\">" +
+                "<button class=\"mini-icon-btn\" onclick=\"window.__toggleFav(" + st.code + ")\" title=\"Favorita\"><span style=\"font-size:16px; color:" + (isFav ? "#f59e0b" : "#94a3b8") + "\">★</span></button>" +
+                "<button class=\"btn-primary\" style=\"padding:6px 10px; font-size:11px;\" onclick=\"window.__focusStop(" + st.code + ")\">Ver en mapa</button>" +
+              "</div>" +
+            "</div>" +
+            (st.onDemand
+              ? "<div style=\"margin-top:10px; background:#fffbeb; border:1px solid #fde68a; border-radius:11px; padding:8px 10px; font-size:11px; color:#92400e;\"><strong>⚠️ Parada Bus a Demanda (BusXtu):</strong> Reserva previamente en la App BusXtu o llamando al <strong>633 500 500</strong>.</div>"
+              : "") +
+            "<div class=\"pill-row\" style=\"margin-top:10px; padding-top:10px; border-top:1px solid var(--border);\">" +
+              "<span style=\"font-size:11px; font-weight:700; color:var(--text-muted);\">Líneas:</span>" +
+              (linesHere.length
+                ? linesHere.map(function (l) { return "<button class=\"line-badge\" style=\"background:" + l.color + "; border:none; cursor:pointer;\" onclick=\"window.__inspectLine('" + l.id + "', 0)\">" + l.code + "</button>"; }).join("")
+                : "<span style=\"font-size:11px; color:var(--text-muted);\">Servicio BusXtu</span>") +
+            "</div>" +
+          "</div>";
+
+        if (arr.todayList.length > 0) {
+          html += "<div class=\"section-title\">Próximas llegadas hoy</div>";
+          arr.todayList.slice(0, 14).forEach(function (item) {
+            const cls = item.waitMins <= 1 ? "eta-now" : (item.waitMins <= 6 ? "eta-soon" : "eta-later");
+            html += "" +
+              "<div class=\"card card-click\" onclick=\"window.__inspectLine('" + item.line.id + "', " + item.dirIdx + ")\" style=\"display:flex; align-items:center; justify-content:space-between; gap:10px;\">" +
+                "<div style=\"display:flex; align-items:center; gap:10px; min-width:0;\">" +
+                  "<span class=\"line-badge-lg\" style=\"background:" + item.line.color + "\">" + item.line.code + "</span>" +
+                  "<div style=\"min-width:0;\">" +
+                    "<div style=\"font-weight:800; font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;\">" + escapeHtml(item.dest) + "</div>" +
+                    "<div style=\"font-size:11px; color:var(--text-muted); margin-top:2px;\">Paso estimado: <strong>" + item.passTime + " h</strong></div>" +
+                  "</div>" +
+                "</div>" +
+                "<span class=\"eta-pill " + cls + "\">" + formatWait(item.waitMins) + "</span>" +
+              "</div>";
+          });
+        }
+
+        if (arr.nextDayList.length > 0) {
+          if (arr.todayList.length === 0) {
+            const first = arr.nextDayList[0];
+            html += "" +
+              "<div class=\"night-card\">" +
+                "<div style=\"font-size:13.5px; font-weight:900;\">🌙 Servicio finalizado por hoy</div>" +
+                "<div style=\"font-size:11.5px; color:#c7d2fe; margin-top:3px;\">No quedan más autobuses hoy en " + escapeHtml(st.name) + ".</div>" +
+                "<div style=\"margin-top:10px; background:rgba(255,255,255,0.1); border-radius:12px; padding:10px; display:flex; align-items:center; justify-content:space-between; gap:8px;\">" +
+                  "<div>" +
+                    "<div style=\"font-size:10px; font-weight:800; text-transform:uppercase; color:#fde68a;\">Primer bus · " + first.dayLabel + "</div>" +
+                    "<div style=\"display:flex; align-items:center; gap:6px; margin-top:4px;\">" +
+                      "<span class=\"line-badge\" style=\"background:" + first.line.color + "\">" + first.line.code + "</span>" +
+                      "<span style=\"font-size:12px; font-weight:800;\">" + escapeHtml(first.dest) + "</span>" +
+                    "</div>" +
+                  "</div>" +
+                  "<div style=\"text-align:right;\">" +
+                    "<div style=\"font-size:16px; font-weight:900; color:#fde68a;\">" + first.passTime + " h</div>" +
+                    "<div style=\"font-size:10.5px; color:#c7d2fe;\">" + formatWait(first.waitMins) + "</div>" +
+                  "</div>" +
+                "</div>" +
+              "</div>";
+          }
+
+          html += "<div class=\"section-title\">" + (arr.todayList.length === 0 ? "Primeros buses del día siguiente" : "Otras líneas · Próximo inicio") + "</div>";
+          arr.nextDayList.forEach(function (item) {
+            html += "" +
+              "<div class=\"card card-click\" onclick=\"window.__inspectLine('" + item.line.id + "', " + item.dirIdx + ")\" style=\"display:flex; align-items:center; justify-content:space-between; gap:8px;\">" +
+                "<div style=\"display:flex; align-items:center; gap:8px; min-width:0;\">" +
+                  "<span class=\"line-badge\" style=\"background:" + item.line.color + "; padding:4px 8px;\">" + item.line.code + "</span>" +
+                  "<div style=\"min-width:0;\">" +
+                    "<div style=\"font-weight:800; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;\">" + escapeHtml(item.dest) + "</div>" +
+                    "<div style=\"font-size:10.5px; color:var(--text-muted);\">" + item.dayLabel + " · 1er servicio</div>" +
+                  "</div>" +
+                "</div>" +
+                "<div style=\"text-align:right; flex-shrink:0;\">" +
+                  "<div class=\"eta-pill eta-night\">" + item.passTime + " h</div>" +
+                  "<div style=\"font-size:10px; color:var(--text-muted); margin-top:2px;\">" + formatWait(item.waitMins) + "</div>" +
+                "</div>" +
+              "</div>";
+          });
+        }
+
+        container.innerHTML = html;
+      }
+
+      function renderLinesList(container) {
+        const cat = state.lineasFilter;
+        const active = getActiveBuses();
+        const todayType = getCurrentDayType();
+        const list = cat === "all" ? BUS_LINES : BUS_LINES.filter(function (l) { return l.category === cat; });
+
+        let html = "" +
+          "<div class=\"pill-row\">" +
+            "<button class=\"btn-soft " + (cat === "all" ? "active" : "") + "\" onclick=\"window.__setLineasFilter('all')\">Todas (15)</button>" +
+            "<button class=\"btn-soft " + (cat === "regular" ? "active" : "") + "\" onclick=\"window.__setLineasFilter('regular')\">Regulares (7)</button>" +
+            "<button class=\"btn-soft " + (cat === "weekend" ? "active" : "") + "\" onclick=\"window.__setLineasFilter('weekend')\">Finde/Festiu (3)</button>" +
+            "<button class=\"btn-soft " + (cat === "school" ? "active" : "") + "\" onclick=\"window.__setLineasFilter('school')\">Institutos (5)</button>" +
+          "</div>";
+
+        if (cat === "all" || cat === "weekend") {
+          html += "" +
+            "<div class=\"card card-click\" onclick=\"window.__toggleD1Chip()\" style=\"border-color:" + (state.showD1 ? D1_BUSXTU.color : "#bbf7d0") + "; background:#f0fdf4;\">" +
+              "<div style=\"display:flex; align-items:center; justify-content:space-between; gap:10px;\">" +
+                "<div style=\"display:flex; align-items:center; gap:10px;\">" +
+                  "<span class=\"line-badge-lg\" style=\"background:" + D1_BUSXTU.color + "\">D1</span>" +
+                  "<div>" +
+                    "<div style=\"font-weight:900; font-size:13px; color:#14532d;\">" + D1_BUSXTU.name + "</div>" +
+                    "<div style=\"font-size:11px; color:#166534; margin-top:2px;\">" + D1_BUSXTU.hours + "</div>" +
+                  "</div>" +
+                "</div>" +
+                "<span class=\"sms-tag\" style=\"background:" + (state.showD1 ? D1_BUSXTU.color : "#dcfce7") + "; color:" + (state.showD1 ? "#fff" : "#166534") + ";\">" + (state.showD1 ? "Visible" : "Ver mapa") + "</span>" +
+              "</div>" +
+              "<div style=\"font-size:11px; color:#166534; margin-top:8px; line-height:1.4;\">" +
+                "<strong>Zonas:</strong> " + D1_BUSXTU.zones.join(" · ") + "<br/>" +
+                "<strong>Reserva:</strong> App BusXtu o Tel. <strong>" + D1_BUSXTU.phone + "</strong> (sin coste adicional)." +
+              "</div>" +
+            "</div>";
+        }
+
+        list.forEach(function (line) {
+          const liveCount = active.filter(function (b) { return b.line.id === line.id; }).length;
+          const runsToday = line.directions.some(function (d) { return getDeparturesForDay(d, todayType).length > 0; });
+
+          html += "" +
+            "<div class=\"card card-click\" onclick=\"window.__inspectLine('" + line.id + "', 0)\" style=\"display:flex; align-items:center; justify-content:space-between; gap:10px;\">" +
+              "<div style=\"display:flex; align-items:center; gap:10px; min-width:0;\">" +
+                "<span class=\"line-badge-lg\" style=\"background:" + line.color + "\">" + line.code + "</span>" +
+                "<div style=\"min-width:0;\">" +
+                  "<div style=\"font-weight:800; font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;\">" + escapeHtml(line.name) + "</div>" +
+                  "<div style=\"font-size:11px; color:var(--text-muted); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;\">" + escapeHtml(line.subtitle) + "</div>" +
+                "</div>" +
+              "</div>" +
+              "<div style=\"flex-shrink:0;\">" +
+                (liveCount > 0
+                  ? "<span class=\"eta-pill eta-soon\">" + liveCount + " en ruta</span>"
+                  : runsToday
+                    ? "<span class=\"sms-tag\">Ver paradas →</span>"
+                    : "<span class=\"eta-pill eta-night\">No circula hoy</span>") +
+              "</div>" +
+            "</div>";
+        });
+
+        container.innerHTML = html;
+      }
+
+      function renderLineThermometer(container, lineId) {
+        const line = BUS_LINES.find(function (l) { return l.id === lineId; });
+        if (!line) return;
+        const dirIdx = Math.min(state.selectedDirIdx, line.directions.length - 1);
+        const dir = line.directions[dirIdx];
+        const activeHere = getActiveBuses().filter(function (b) { return b.line.id === line.id && b.dirIdx === dirIdx; });
+
+        let html = "" +
+          "<button class=\"back-link\" onclick=\"window.__clearSelectedLine()\">← Todas las líneas</button>" +
+          "<div class=\"card\">" +
+            "<div style=\"display:flex; align-items:center; gap:10px;\">" +
+              "<span class=\"line-badge-lg\" style=\"background:" + line.color + "; width:44px; height:44px; font-size:15px;\">" + line.code + "</span>" +
+              "<div>" +
+                "<h2 style=\"margin:0; font-size:14px; font-weight:900;\">" + escapeHtml(line.name) + "</h2>" +
+                "<div style=\"font-size:11px; color:var(--text-muted); margin-top:2px;\">" + escapeHtml(line.subtitle) + "</div>" +
+              "</div>" +
+            "</div>" +
+            (line.directions.length > 1
+              ? "<div style=\"display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:10px; background:var(--surface-soft); padding:4px; border-radius:11px;\">" +
+                  line.directions.map(function (d, i) {
+                    return "<button class=\"tab-btn " + (i === dirIdx ? "active" : "") + "\" style=\"font-size:11px; padding:6px;\" onclick=\"window.__inspectLine('" + line.id + "', " + i + ")\">" + (i === 0 ? "Anada" : "Tornada") + " · " + escapeHtml(d.dest) + "</button>";
+                  }).join("") +
+                "</div>"
+              : "<div style=\"margin-top:10px; font-size:11.5px; font-weight:700; color:#334155; background:var(--surface-soft); padding:7px 10px; border-radius:10px;\">" + escapeHtml(dir.label) + "</div>") +
+          "</div>" +
+          "<div class=\"card\">" +
+            "<div style=\"display:flex; justify-content:space-between; margin-bottom:10px; font-size:11px; font-weight:800; color:var(--text-muted);\">" +
+              "<span>" + dir.stops.length + " PARADAS</span>" +
+              "<span>DURACIÓN: ~" + Math.round(dir.stops[dir.stops.length - 1].offset) + " MIN</span>" +
+            "</div>" +
+            "<div class=\"thermo-list\">";
+
+        dir.stops.forEach(function (entry, idx) {
+          const st = STOPS[entry.code];
+          if (!st) return;
+          const isLast = idx === dir.stops.length - 1;
+          const nextInfo = getNextPassInDirection(dir, idx);
+          const transfers = (STOP_LINES[st.code] || []).filter(function (l) { return l.id !== line.id; });
+          const approaching = activeHere.find(function (b) { return b.nextStopCode === st.code; });
+
+          let etaHtml = "<span class=\"sms-tag\">—</span>";
+          if (nextInfo && nextInfo.today) {
+            const cls = nextInfo.waitMins <= 2 ? "eta-now" : (nextInfo.waitMins <= 6 ? "eta-soon" : "eta-later");
+            etaHtml = "<div style=\"text-align:right; flex-shrink:0;\"><span class=\"eta-pill " + cls + "\">" + formatWait(nextInfo.waitMins) + "</span><div style=\"font-size:10px; color:var(--text-muted); margin-top:2px; font-weight:700;\">" + nextInfo.passTime + "</div></div>";
+          } else if (nextInfo && !nextInfo.today) {
+            etaHtml = "<span class=\"eta-pill eta-night\">🌙 " + nextInfo.dayLabel + " " + nextInfo.passTime + "</span>";
+          }
+
+          html += "" +
+            "<div class=\"thermo-item\" onclick=\"window.__openStop(" + st.code + ", true)\">" +
+              (!isLast ? "<div class=\"thermo-line\" style=\"background:" + line.color + "\"></div>" : "") +
+              "<div class=\"thermo-dot\" style=\"border-color:" + (st.onDemand ? "#d97706" : line.color) + "\"></div>" +
+              "<div style=\"min-width:0; flex:1;\">" +
+                (approaching ? "<div style=\"margin-bottom:4px;\"><span class=\"line-badge\" style=\"background:" + line.color + "; font-size:10px;\">🚌 Bus llegando (" + (approaching.etaNext <= 0 ? "Ahora" : approaching.etaNext + " min") + ")</span></div>" : "") +
+                "<div style=\"display:flex; align-items:center; gap:5px; flex-wrap:wrap;\">" +
+                  "<span class=\"sms-tag\">SMS " + st.code + "</span>" +
+                  "<span style=\"font-weight:800; font-size:12px;\">" + escapeHtml(st.name) + "</span>" +
+                  (st.onDemand ? "<span class=\"demand-tag\">Bus a demanda (BusXtu)</span>" : "") +
+                "</div>" +
+                (transfers.length
+                  ? "<div class=\"pill-row\" style=\"margin-top:4px;\">" + transfers.map(function (t) {
+                      return "<button class=\"line-badge\" style=\"background:" + t.color + "; border:none; cursor:pointer; font-size:9.5px; padding:1px 5px;\" onclick=\"event.stopPropagation(); window.__inspectLine('" + t.id + "', 0)\">" + t.code + "</button>";
+                    }).join("") + "</div>"
+                  : "") +
+              "</div>" +
+              etaHtml +
+            "</div>";
+        });
+
+        html += "</div></div>";
+        container.innerHTML = html;
+      }
+
+      function renderLiveTab(container) {
+        const active = getActiveBuses();
+
+        if (active.length === 0) {
+          const sample = getStopArrivals(13).nextDayList[0] || getStopArrivals(93).nextDayList[0];
+          container.innerHTML = "" +
+            "<div class=\"night-card\" style=\"text-align:center; padding:20px;\">" +
+              "<div style=\"font-size:28px;\">🌙</div>" +
+              "<h2 style=\"margin:6px 0 4px; font-size:15px; font-weight:900;\">Sin autobuses circulando ahora</h2>" +
+              "<div style=\"font-size:12px; color:#c7d2fe;\">Hora actual: <strong>" + minsToHHMM(state.nowMins) + " h</strong> · Servicio nocturno</div>" +
+              (sample
+                ? "<div style=\"margin-top:12px; background:rgba(255,255,255,0.1); border-radius:12px; padding:10px; font-size:12px;\">Próximo primer bus: <strong style=\"color:#fde68a;\">" + sample.line.code + " a las " + sample.passTime + " h (" + sample.dayLabel + ")</strong><div style=\"font-size:11px; color:#c7d2fe; margin-top:2px;\">Faltan " + formatWait(sample.waitMins) + "</div></div>"
+                : "") +
+              "<div style=\"margin-top:14px; display:flex; justify-content:center; gap:8px; flex-wrap:wrap;\">" +
+                "<button onclick=\"window.__setSimMode('punta')\" style=\"border:none; background:#fbbf24; color:#0f172a; font-weight:900; font-size:12px; padding:9px 14px; border-radius:11px; cursor:pointer;\">Simular 08:30 Punta 🚌</button>" +
+                "<button onclick=\"window.__setSimMode('dia')\" style=\"border:none; background:rgba(255,255,255,0.16); color:#fff; font-weight:800; font-size:12px; padding:9px 14px; border-radius:11px; cursor:pointer;\">Simular 14:15</button>" +
+              "</div>" +
+            "</div>";
+          return;
+        }
+
+        let html = "<div class=\"section-title\">" + active.length + " autobuses en tiempo real estimado</div>";
+        active.forEach(function (bus) {
+          html += "" +
+            "<div class=\"card card-click\" onclick=\"window.__followBus('" + bus.uid + "')\">" +
+              "<div style=\"display:flex; align-items:center; justify-content:space-between; gap:10px;\">" +
+                "<div style=\"display:flex; align-items:center; gap:10px; min-width:0;\">" +
+                  "<span class=\"line-badge-lg\" style=\"background:" + bus.line.color + "\">" + bus.line.code + "</span>" +
+                  "<div style=\"min-width:0;\">" +
+                    "<div style=\"font-weight:800; font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;\">" + escapeHtml(bus.dest) + "</div>" +
+                    "<div style=\"font-size:11px; color:var(--text-muted); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;\">Próx.: <strong>" + escapeHtml(bus.nextStopName) + "</strong> (" + bus.nextStopTime + " h)</div>" +
+                  "</div>" +
+                "</div>" +
+                "<span class=\"eta-pill " + (bus.etaNext <= 1 ? "eta-now" : "eta-soon") + "\">" + (bus.etaNext <= 0 ? "Llegando" : bus.etaNext + " min") + "</span>" +
+              "</div>" +
+              "<div class=\"progress-track\"><div class=\"progress-fill\" style=\"width:" + bus.progressPct + "%; background:" + bus.line.color + "\"></div></div>" +
+            "</div>";
+        });
+
+        container.innerHTML = html;
+      }
+
+      // =========================================================================
+      // 13. ACCIONES DE INTERACCIÓN Y MODALES
+      // =========================================================================
+      function refreshAll() {
+        updateClockAndTopBar();
+        renderLineChips();
+        renderMapRoutes();
+        renderStopMarkers();
+        renderLiveBuses();
+        renderDrawer();
+      }
+
+      function setSimMode(mode, skipRender) {
+        state.simMode = mode;
+        const now = new Date();
+        if (mode === "realtime") {
+          state.nowMins = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+          state.dayOfWeek = now.getDay();
+          state.isFestiu = false;
+        } else if (mode === "punta") {
+          state.nowMins = 8 * 60 + 30;
+          state.dayOfWeek = 2;
+          state.isFestiu = false;
+        } else if (mode === "dia") {
+          state.nowMins = 14 * 60 + 15;
+          state.dayOfWeek = 3;
+          state.isFestiu = false;
+        } else if (mode === "sab") {
+          state.nowMins = 11 * 60;
+          state.dayOfWeek = 6;
+          state.isFestiu = false;
+        } else if (mode === "dom") {
+          state.nowMins = 12 * 60;
+          state.dayOfWeek = 0;
+          state.isFestiu = false;
+        } else if (mode === "noche") {
+          state.nowMins = 1 * 60 + 30;
+          state.dayOfWeek = 2;
+          state.isFestiu = false;
+        }
+        if (!skipRender) refreshAll();
+      }
+
+      function setSheet(mode) {
+        const d = document.getElementById("drawer");
+        if (!d) return;
+        d.classList.remove("sheet-collapsed", "sheet-half", "sheet-expanded");
+        d.classList.add("sheet-" + mode);
+      }
+
+      function switchTab(tab) {
+        state.activeTab = tab;
+        document.querySelectorAll(".tab-btn").forEach(function (b) { b.classList.remove("active"); });
+        const activeBtn = document.getElementById("tab-" + tab);
+        if (activeBtn) activeBtn.classList.add("active");
+        renderDrawer();
+      }
+
+      function openStopDetail(code, fly) {
+        state.selectedStopCode = Number(code);
+        state.paradasView = "detail";
+        switchTab("paradas");
+        setSheet("expanded");
+        renderStopMarkers();
+        const st = STOPS[state.selectedStopCode];
+        if (st && fly && map) {
+          map.flyTo([st.lat, st.lon], Math.max(16, map.getZoom()), { duration: 0.55 });
+        }
+      }
+
+      function inspectLine(lineId, dirIdx) {
+        state.selectedLineId = lineId;
+        state.selectedDirIdx = dirIdx || 0;
+        state.visibleLineIds.add(lineId);
+        switchTab("lineas");
+        setSheet("expanded");
+        renderLineChips();
+        renderMapRoutes();
+        renderStopMarkers();
+        renderLiveBuses();
+
+        const line = BUS_LINES.find(function (l) { return l.id === lineId; });
+        if (line && map) {
+          const dir = line.directions[state.selectedDirIdx] || line.directions[0];
+          const coords = dir.stops.map(function (s) { return STOPS[s.code]; }).filter(Boolean).map(function (s) { return [s.lat, s.lon]; });
+          if (coords.length > 1) {
+            map.fitBounds(coords, { padding: [55, 55], maxZoom: 15, animate: true });
+          }
+        }
+      }
+
+      function followBus(uid) {
+        const entry = busMarkersMap.get(uid);
+        if (!entry || !map) return;
+        map.flyTo([entry.bus.lat, entry.bus.lon], 16, { duration: 0.6 });
+        setTimeout(function () { entry.marker.openPopup(); }, 450);
+        setSheet("collapsed");
+      }
+
+      function updateCacheCountLabel() {
+        const el = document.getElementById("cfg-cache-count");
+        if (!el) return;
+        el.textContent = Object.keys(state.snappedCache).length + " / " + TOTAL_DIRECTIONS + " rutas cacheadas";
+      }
+
+      function initSheetGestures() {
+        const handle = document.getElementById("sheet-handle");
+        if (!handle) return;
+        let startY = 0;
+        handle.addEventListener("touchstart", function (e) { startY = e.touches[0].clientY; }, { passive: true });
+        handle.addEventListener("touchend", function (e) {
+          const delta = e.changedTouches[0].clientY - startY;
+          const d = document.getElementById("drawer");
+          if (Math.abs(delta) < 16) {
+            if (d.classList.contains("sheet-expanded")) setSheet("half");
+            else if (d.classList.contains("sheet-half")) setSheet("collapsed");
+            else setSheet("expanded");
+          } else if (delta < -24) {
+            setSheet(d.classList.contains("sheet-collapsed") ? "half" : "expanded");
+          } else if (delta > 24) {
+            setSheet(d.classList.contains("sheet-expanded") ? "half" : "collapsed");
+          }
+        }, { passive: true });
+        handle.addEventListener("click", function () {
+          const d = document.getElementById("drawer");
+          if (d.classList.contains("sheet-expanded")) setSheet("half");
+          else if (d.classList.contains("sheet-half")) setSheet("collapsed");
+          else setSheet("expanded");
+        });
+      }
+
+      // Callbacks globales seguros para HTML inline
+      window.__setSimMode = setSimMode;
+      window.__toggleFestiu = function (checked) {
+        state.isFestiu = !!checked;
+        refreshAll();
+        showToast(state.isFestiu ? "Horario Festiu activado (L21, L32, L33)" : "Horario estándar restaurado");
+      };
+      window.__switchMapStyle = function (style) {
+        state.settings.provider = "maptiler";
+        state.settings.maptilerStyle = style;
+        state.usingOsmFallback = false;
+        safeStorage.set(STORAGE_SETTINGS, state.settings);
+        applyTileLayer();
+      };
+      window.__switchTab = switchTab;
+      window.__setSheet = setSheet;
+      window.__recenterReus = function () {
+        if (map) map.flyTo(REUS_CENTER, DEFAULT_ZOOM, { duration: 0.55 });
+      };
+      window.__openStop = openStopDetail;
+      window.__backToStops = function () { state.paradasView = "list"; renderDrawer(); };
+      window.__focusStop = function (code) {
+        const st = STOPS[code];
+        if (st && map) { map.flyTo([st.lat, st.lon], 17, { duration: 0.55 }); setSheet("collapsed"); }
+      };
+      window.__clearSearch = function () { state.searchQuery = ""; renderDrawer(); };
+      window.__setParadasFilter = function (f) { state.paradasFilter = f; renderDrawer(); };
+      window.__setLineasFilter = function (f) { state.lineasFilter = f; renderDrawer(); };
+      window.__inspectLine = inspectLine;
+      window.__clearSelectedLine = function () {
+        state.selectedLineId = null;
+        renderMapRoutes();
+        renderStopMarkers();
+        renderDrawer();
+      };
+      window.__followBus = followBus;
+
+      window.__toggleFav = function (code) {
+        const c = Number(code);
+        if (state.favorites.has(c)) {
+          state.favorites.delete(c);
+          showToast("Parada eliminada de favoritas");
+        } else {
+          state.favorites.add(c);
+          showToast("Parada guardada en favoritas ★");
+        }
+        safeStorage.set(STORAGE_FAVS, Array.from(state.favorites));
+        renderDrawer();
+      };
+
+      window.__locateUser = function () {
+        if (!navigator.geolocation) {
+          state.userLoc = { lat: 41.1563606, lon: 1.1019185 };
+          state.paradasFilter = "nearby";
+          showToast("GPS no disponible. Ordenando desde Plaça de les Oques.");
+          renderDrawer();
+          return;
+        }
+        showToast("Buscando paradas cercanas...");
+        navigator.geolocation.getCurrentPosition(
+          function (pos) {
+            state.userLoc = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+            state.paradasFilter = "nearby";
+            if (map && typeof window.L !== "undefined") {
+              if (userLocMarker) map.removeLayer(userLocMarker);
+              userLocMarker = window.L.circleMarker([state.userLoc.lat, state.userLoc.lon], {
+                radius: 8, fillColor: "#2563eb", color: "#ffffff", weight: 3, fillOpacity: 1
+              }).addTo(map).bindTooltip("Tu ubicación");
+              map.flyTo([state.userLoc.lat, state.userLoc.lon], 15, { duration: 0.6 });
+            }
+            renderDrawer();
+          },
+          function () {
+            state.userLoc = { lat: 41.1563606, lon: 1.1019185 };
+            state.paradasFilter = "nearby";
+            showToast("Permiso GPS denegado. Mostrando cerca de Plaça de les Oques.");
+            renderDrawer();
+          },
+          { timeout: 6000 }
+        );
+      };
+
+      window.__toggleAllLines = function () {
+        if (state.visibleLineIds.size === BUS_LINES.length && !state.showD1) {
+          state.visibleLineIds = new Set(["10"]);
+        } else {
+          state.visibleLineIds = new Set(BUS_LINES.map(function (l) { return l.id; }));
+          state.selectedLineId = null;
+          state.showD1 = false;
+        }
+        renderLineChips(); renderMapRoutes(); renderStopMarkers(); renderLiveBuses();
+      };
+
+      window.__toggleLineChip = function (id) {
+        if (state.visibleLineIds.has(id)) {
+          if (state.visibleLineIds.size > 1) state.visibleLineIds.delete(id);
+          if (state.selectedLineId === id) state.selectedLineId = null;
+        } else {
+          state.visibleLineIds.add(id);
+        }
+        renderLineChips(); renderMapRoutes(); renderStopMarkers(); renderLiveBuses();
+      };
+
+      window.__toggleSchoolChips = function () {
+        const ids = ["40", "41", "42", "43", "44"];
+        const allOn = ids.every(function (id) { return state.visibleLineIds.has(id); });
+        if (allOn) ids.forEach(function (id) { state.visibleLineIds.delete(id); });
+        else ids.forEach(function (id) { state.visibleLineIds.add(id); });
+        if (state.visibleLineIds.size === 0) state.visibleLineIds.add("10");
+        renderLineChips(); renderMapRoutes(); renderStopMarkers(); renderLiveBuses();
+      };
+
+      window.__toggleD1Chip = function () {
+        state.showD1 = !state.showD1;
+        renderLineChips();
+        renderMapRoutes();
+        if (state.showD1 && map) {
+          const pts = D1_BUSXTU.keyStops.map(function (c) { return STOPS[c]; }).filter(Boolean).map(function (s) { return [s.lat, s.lon]; });
+          if (pts.length > 1) map.fitBounds(pts, { padding: [55, 55], maxZoom: 14 });
+          showToast("D1 BusXtu · Paradas de bus a demanda resaltadas en verde");
+        }
+        renderDrawer();
+      };
+
+      window.__openSettings = function () {
+        document.getElementById("cfg-provider").value = state.settings.provider;
+        document.getElementById("cfg-maptiler-key").value = state.settings.maptilerKey || DEFAULT_MAPTILER_KEY;
+        document.getElementById("cfg-snapping").checked = !!state.settings.snapping;
+        document.getElementById("cfg-routing-provider").value = state.settings.routingProvider || "osrm";
+        document.getElementById("cfg-routing-key").value = state.settings.routingApiKey || "";
+        window.__onProviderChange();
+        window.__onRoutingChange();
+        updateCacheCountLabel();
+        document.getElementById("settings-modal").classList.remove("hidden");
+      };
+
+      window.__closeSettings = function () {
+        document.getElementById("settings-modal").classList.add("hidden");
+      };
+
+      window.__onProviderChange = function () {
+        const p = document.getElementById("cfg-provider").value;
+        document.getElementById("cfg-key-box").classList.toggle("hidden", p !== "maptiler");
+      };
+
+      window.__onRoutingChange = function () {
+        const snapOn = document.getElementById("cfg-snapping").checked;
+        const rProv = document.getElementById("cfg-routing-provider").value;
+        document.getElementById("cfg-routing-box").classList.toggle("hidden", !snapOn);
+        document.getElementById("cfg-routing-key-box").classList.toggle("hidden", rProv === "osrm");
+      };
+
+      window.__clearRoutesCache = function () {
+        state.snappedCache = {};
+        routeQueue.length = 0;
+        routeQueueKeys.clear();
+        safeStorage.remove(STORAGE_ROUTES);
+        updateCacheCountLabel();
+        renderMapRoutes();
+        renderLiveBuses();
+        if (state.settings.snapping) enqueueAllRoutes();
+        showToast("Caché de rutas limpiada. Recalculando carreteras...");
+      };
+
+      window.__saveSettings = function () {
+        const prevRoutingProv = state.settings.routingProvider;
+        state.settings.provider = document.getElementById("cfg-provider").value;
+        state.settings.maptilerKey = document.getElementById("cfg-maptiler-key").value.trim() || DEFAULT_MAPTILER_KEY;
+        state.settings.snapping = document.getElementById("cfg-snapping").checked;
+        state.settings.routingProvider = document.getElementById("cfg-routing-provider").value;
+        state.settings.routingApiKey = document.getElementById("cfg-routing-key").value.trim();
+        state.usingOsmFallback = false;
+        safeStorage.set(STORAGE_SETTINGS, state.settings);
+        applyTileLayer();
+
+        if (state.settings.snapping && prevRoutingProv !== state.settings.routingProvider) {
+          state.snappedCache = {};
+          safeStorage.remove(STORAGE_ROUTES);
+        }
+        if (state.settings.snapping) {
+          enqueueAllRoutes();
+        } else {
+          routeQueue.length = 0;
+          routeQueueKeys.clear();
+          updateRouteProgressUI(null);
+        }
+        renderMapRoutes();
+        renderLiveBuses();
+        window.__closeSettings();
+        showToast(state.settings.snapping ? "Trazado por carreteras reales activo" : "Modo líneas esquemáticas activo");
+      };
+
+      window.__resetSettings = function () {
+        state.settings = Object.assign({}, DEFAULT_SETTINGS);
+        state.usingOsmFallback = false;
+        safeStorage.set(STORAGE_SETTINGS, state.settings);
+        applyTileLayer();
+        enqueueAllRoutes();
+        renderMapRoutes();
+        window.__closeSettings();
+        showToast("MapTiler y OSRM restablecidos por defecto");
+      };
+
+      // =========================================================================
+      // 14. ARRANQUE ULTRA-ROBUSTO (UI PRIMERO, LUEGO LEAFLET)
+      // =========================================================================
+      document.addEventListener("DOMContentLoaded", function () {
+        // 1. Preparar hora y pintar TODA la interfaz inmediatamente
+        setSimMode("realtime", true);
+        initSheetGestures();
+        updateClockAndTopBar();
+        updateStyleSwitcherUI();
+        updateBrandSubtitle();
+        renderLineChips();
+        renderDrawer();
+
+        // 2. Inicializar Leaflet de forma segura (con reintento suave si el CDN tarda)
+        initMapWithRetry(0);
+
+        // 3. Bucle de actualización fluida cada 1 segundo
+        let ticks = 0;
+        setInterval(function () {
+          if (state.simMode === "realtime") {
+            const now = new Date();
+            state.nowMins = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+            state.dayOfWeek = now.getDay();
+          } else {
+            state.nowMins = (state.nowMins + 1 / 60) % 1440;
+          }
+          updateClockAndTopBar();
+          renderLiveBuses();
+          ticks++;
+          if (ticks % 15 === 0) {
+            if (state.activeTab === "envivo" || (state.activeTab === "paradas" && state.paradasView === "detail")) {
+              renderDrawer();
+            }
+          }
+        }, 1000);
+      });
+    })();
+  </script>
+</body>
+</html>
